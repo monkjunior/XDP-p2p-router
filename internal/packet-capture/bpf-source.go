@@ -46,14 +46,16 @@ int packet_counter(struct xdp_md *ctx){
 	}
 
 	key.family = ip->protocol;
-	key.s_v4_addr = bpf_ntohl(ip->saddr);
-	key.d_v4_addr = bpf_ntohl(ip->daddr);
+	key.s_v4_addr = ip->saddr;
+	key.d_v4_addr = ip->daddr;
 
-	value = counters.lookup_or_try_init(&key, &default_value);
-	if (value) {
-	    __u64 bytes = data_end - data; /* Calculate packet length */
-		__sync_fetch_and_add(&value->rx_packets, 1);
-		__sync_fetch_and_add(&value->rx_bytes, bytes);
+	if (ip->daddr==LOCAL_ADDR) {
+		value = counters.lookup_or_try_init(&key, &default_value);
+		if (value) {
+			__u64 bytes = data_end - data; /* Calculate packet length */
+			__sync_fetch_and_add(&value->rx_packets, 1);
+			__sync_fetch_and_add(&value->rx_bytes, bytes);
+		}
 	}
 
 	return XDP_PASS;
