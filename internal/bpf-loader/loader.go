@@ -27,7 +27,7 @@ func LoadModule(device string) *bpf.Module {
 	ipToInt32 := fmt.Sprintf("%d", binary.LittleEndian.Uint32(ip))
 	fmt.Println("your local ip in format int32: ", ipToInt32)
 
-	return bpf.NewModule(C_SOURCE_CODE, []string{
+	return bpf.NewModule(CSourceCode, []string{
 		"-w",
 		"-DLOCAL_ADDR=" + ipToInt32,
 	},

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/vu-ngoc-son/XDP-p2p-router/database/geolite2"
 	bpf_loader "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-loader"
 	packetCapture "github.com/vu-ngoc-son/XDP-p2p-router/internal/packet-capture"
 	"os"
@@ -29,9 +30,17 @@ func init() {
 }
 
 func execStartCmd(startCmd *cobra.Command, args []string) {
+	asnDBPath := "/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-ASN_20210504/GeoLite2-ASN.mmdb"
+	cityDBPath := "/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-City_20210427/GeoLite2-City.mmdb"
+	countryDBPath := "/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-Country_20210427/GeoLite2-Country.mmdb"
+
+	geoDB := geolite2.NewGeoLite2(asnDBPath, cityDBPath, countryDBPath)
+	fmt.Println(geoDB)
+	fmt.Println(geoDB.IPInfo("13.225.100.217"))
+
 	m := bpf_loader.LoadModule(device)
 	p, err := packetCapture.Start(device, m)
-	if err!=nil{
+	if err != nil {
 		fmt.Println("failed to start packet capture module")
 		os.Exit(1)
 	}
@@ -49,7 +58,7 @@ func execStartCmd(startCmd *cobra.Command, args []string) {
 
 	go func() {
 		for {
-			time.Sleep(10*time.Second)
+			time.Sleep(10 * time.Second)
 			p.PrintCounterMap()
 		}
 	}()

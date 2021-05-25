@@ -3,6 +3,7 @@ package packet_capture
 import (
 	"fmt"
 	bpf "github.com/iovisor/gobpf/bcc"
+	bpf_maps "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-maps"
 	"os"
 )
 
@@ -32,35 +33,35 @@ func Start(device string, module *bpf.Module) (*PacketCapture, error) {
 	}
 
 	return &PacketCapture{
-		Table: bpf.NewTable(module.TableId("counters"), module),
+		Table: bpf.NewTable(module.TableId(bpf_maps.PacketCaptureMap), module),
 	}, nil
 }
 
-func Close(device string, module *bpf.Module){
+func Close(device string, module *bpf.Module) {
 	if err := module.RemoveXDP(device); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to remove XDP from %s: %v\n", device, err)
 	}
 	fmt.Println("close packet capture module successfully")
 }
 
-func (p *PacketCapture) PrintCounterMap(){
+func (p *PacketCapture) PrintCounterMap() {
 	countersTable := p.Table
 	fmt.Println("counter table", countersTable, countersTable.Config())
 	fmt.Printf("\n{Keys}: {Values}\n")
 	for item := countersTable.Iter(); item.Next(); {
 		keyRaw := item.Key()
 		valueRaw := item.Leaf()
-		key := PacketInfo{
-			SourceAddr: keyRaw[0:4],
-			DestAddr:   keyRaw[4:8],
-			Family:     keyRaw[8:12],
+		mapItem := bpf_maps.PktCounterMap{
+			Key: bpf_maps.PktCounterKey{
+				SourceAddr: keyRaw[0:4],
+				DestAddr:   keyRaw[4:8],
+				Family:     keyRaw[8:12],
+			},
+			Value: bpf_maps.PktCounterValue{
+				RxPackets: valueRaw[0:4],
+				RxBytes:   valueRaw[4:8],
+			},
 		}
-		value := PacketCounter{
-			RxPackets: valueRaw[0:4],
-			RxBytes:   valueRaw[4:8],
-		}
-		fmt.Printf("%+v: %+v\n", key, value)
+		fmt.Printf("%+v\n", mapItem)
 	}
 }
-
-

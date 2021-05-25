@@ -1,7 +1,7 @@
 package bpf_loader
 
 const (
-	C_SOURCE_CODE = `
+	CSourceCode = `
 /* SPDX-License-Identifier: GPL-2.0 */
 #include <linux/bpf.h>
 #include <uapi/linux/if_ether.h>
@@ -21,7 +21,7 @@ struct packet_counter {
     __u64 rx_bytes;
 };
 
-BPF_TABLE("hash", struct packet_info, struct packet_counter, counters, 1024);
+BPF_TABLE("hash", struct packet_info, struct packet_counter, pkt_counter, 1024);
 
 int packet_counter(struct xdp_md *ctx){
 
@@ -51,7 +51,7 @@ int packet_counter(struct xdp_md *ctx){
 	key.d_v4_addr = ip->daddr;
 
 	if (ip->daddr==LOCAL_ADDR) {
-		value = counters.lookup_or_try_init(&key, &default_value);
+		value = pkt_counter.lookup_or_try_init(&key, &default_value);
 		if (value) {
 			__u64 bytes = data_end - data; /* Calculate packet length */
 			__sync_fetch_and_add(&value->rx_packets, 1);
