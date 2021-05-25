@@ -9,6 +9,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+/*
+#cgo CFLAGS: -I/usr/include/bcc/compat
+#cgo LDFLAGS: -lbcc
+#include <bcc/bcc_common.h>
+#include <bcc/libbpf.h>
+*/
+import "C"
+
 var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
