@@ -1,17 +1,17 @@
 package bpf_maps
 
 type PktCounterKey struct {
-	SourceAddr []byte
-	DestAddr   []byte
-	Family     []byte
+	SourceAddr string
+	DestAddr   string
+	Family     uint32
 }
 
 type PktCounterValue struct {
-	RxPackets []byte
-	RxBytes   []byte
+	RxPackets uint64
+	RxBytes   uint64
 }
 
-type PktCounterMap struct {
+type PktCounterMapItem struct {
 	Key   PktCounterKey
 	Value PktCounterValue
 }

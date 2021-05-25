@@ -1,18 +1,41 @@
 package ip2location
 
 import (
-	"github.com/iovisor/gobpf/bcc"
-	"gorm.io/gorm"
+	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
+	"github.com/vu-ngoc-son/XDP-p2p-router/database/geolite2"
+	packetCapture "github.com/vu-ngoc-son/XDP-p2p-router/internal/packet-capture"
+	"sync"
 )
 
 type Locator struct {
-	BPFTable *bcc.Table
-	DB       *gorm.DB
+	PacketCapture *packetCapture.PacketCapture
+	DB            *dbSqlite.SQLiteDB
+	GeoDB         *geolite2.GeoLite2
 }
 
-func NewLocator(t *bcc.Table, db *gorm.DB) *Locator {
+func NewLocator(p *packetCapture.PacketCapture, db *dbSqlite.SQLiteDB, g *geolite2.GeoLite2) *Locator {
 	return &Locator{
-		BPFTable: t,
-		DB:       db,
+		PacketCapture: p,
+		DB:            db,
+		GeoDB:         g,
 	}
+}
+
+func (l *Locator) AddPeers() {
+	pktCounterMap, err := l.PacketCapture.ExportMap()
+	if err != nil {
+		return
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(pktCounterMap))
+	for _, item := range pktCounterMap {
+		peer, err := l.GeoDB.IPInfo(item.Key.SourceAddr)
+		if err != nil {
+			return
+		}
+		go l.DB.UpdateOrCreatePeer(peer, &wg)
+	}
+	wg.Wait()
+	return
 }

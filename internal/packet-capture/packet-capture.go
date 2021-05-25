@@ -4,6 +4,7 @@ import (
 	"fmt"
 	bpf "github.com/iovisor/gobpf/bcc"
 	bpf_maps "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-maps"
+	"github.com/vu-ngoc-son/XDP-p2p-router/internal/common"
 	"os"
 )
 
@@ -44,24 +45,53 @@ func Close(device string, module *bpf.Module) {
 	fmt.Println("close packet capture module successfully")
 }
 
-func (p *PacketCapture) PrintCounterMap() {
+func (p *PacketCapture) ExportMap() (result []bpf_maps.PktCounterMapItem, err error) {
 	countersTable := p.Table
-	fmt.Println("counter table", countersTable, countersTable.Config())
-	fmt.Printf("\n{Keys}: {Values}\n")
+
+	result = make([]bpf_maps.PktCounterMapItem, 0)
 	for item := countersTable.Iter(); item.Next(); {
 		keyRaw := item.Key()
 		valueRaw := item.Leaf()
-		mapItem := bpf_maps.PktCounterMap{
+
+		sourceAddr, err := common.ConvertUint8ToIP(keyRaw[0:4])
+		if err != nil {
+			return nil, err
+		}
+
+		destAddr, err := common.ConvertUint8ToIP(keyRaw[4:8])
+		if err != nil {
+			return nil, err
+		}
+
+		family, err := common.ConvertUint8ToUInt32(keyRaw[8:12])
+		if err != nil {
+			return nil, err
+		}
+
+		rxPackets, err := common.ConvertUint8ToUInt64(valueRaw[0:8])
+		if err != nil {
+			return nil, err
+		}
+
+		rxBytes, err := common.ConvertUint8ToUInt64(valueRaw[8:16])
+		if err != nil {
+			return nil, err
+		}
+
+		mapItem := bpf_maps.PktCounterMapItem{
 			Key: bpf_maps.PktCounterKey{
-				SourceAddr: keyRaw[0:4],
-				DestAddr:   keyRaw[4:8],
-				Family:     keyRaw[8:12],
+				SourceAddr: sourceAddr,
+				DestAddr:   destAddr,
+				Family:     family,
 			},
 			Value: bpf_maps.PktCounterValue{
-				RxPackets: valueRaw[0:4],
-				RxBytes:   valueRaw[4:8],
+				RxPackets: rxPackets,
+				RxBytes:   rxBytes,
 			},
 		}
-		fmt.Printf("%+v\n", mapItem)
+		result = append(result, mapItem)
+
 	}
+	fmt.Println(result)
+	return result, nil
 }

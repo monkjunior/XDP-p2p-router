@@ -1,7 +1,7 @@
 package database
 
 type Hosts struct {
-	Ip          string
+	Ip          string `gorm:"primaryKey"`
 	Asn         uint
 	Isp         string
 	CountryCode string
@@ -11,7 +11,7 @@ type Hosts struct {
 }
 
 type Peers struct {
-	Ip          string
+	Ip          string `gorm:"primaryKey"`
 	Asn         uint
 	Isp         string
 	CountryCode string
@@ -21,6 +21,6 @@ type Peers struct {
 }
 
 type Limits struct {
-	Ip        string
+	Ip        string `gorm:"primaryKey"`
 	Bandwidth float64
 }
