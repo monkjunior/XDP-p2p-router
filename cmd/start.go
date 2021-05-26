@@ -35,10 +35,10 @@ func init() {
 }
 
 func execStartCmd(_ *cobra.Command, _ []string) {
-	asnDBPath := "/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-ASN_20210504/GeoLite2-ASN.mmdb"
-	cityDBPath := "/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-City_20210427/GeoLite2-City.mmdb"
-	countryDBPath := "/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-Country_20210427/GeoLite2-Country.mmdb"
-	sqliteDBPath := "/home/ted/TheFirstProject/XDP-p2p-router/data/sqlite/p2p-router.db"
+	asnDBPath := fmt.Sprintf("./data/geolite2/GeoLite2-ASN_%s/GeoLite2-ASN.mmdb", "20210525")
+	cityDBPath := fmt.Sprintf("./data/geolite2/GeoLite2-City_%s/GeoLite2-City.mmdb", "20210525")
+	countryDBPath := fmt.Sprintf("./data/geolite2/GeoLite2-Country_%s/GeoLite2-Country.mmdb", "20210525")
+	sqliteDBPath := "./data/sqlite/p2p-router.db"
 
 	geoDB := geolite2.NewGeoLite2(asnDBPath, cityDBPath, countryDBPath)
 
