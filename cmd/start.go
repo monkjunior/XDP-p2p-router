@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/compute"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/ip2location"
+	limit_band "github.com/vu-ngoc-son/XDP-p2p-router/internal/limit-band"
 	"os"
 	"os/signal"
 	"syscall"
@@ -66,6 +67,12 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 	defer packetCapture.Close(device, m)
+	limiter, err := limit_band.NewLimiter(m)
+	if err != nil {
+		fmt.Println("failed to init limiter module")
+		os.Exit(1)
+	}
+	defer limit_band.Close(device, m)
 
 	locator := ip2location.NewLocator(pktCapture, sqliteDB, geoDB)
 	calculator := compute.NewCalculator(sqliteDB)
@@ -94,6 +101,24 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 			err := calculator.UpdatePeersLimit()
 			if err != nil {
 				fmt.Println("calculator | failed to update peer limit ", err)
+			}
+		}
+	}()
+	go func() {
+		for {
+			time.Sleep(15 * time.Second)
+			err := calculator.UpdatePeersLimit()
+			if err != nil {
+				fmt.Println("calculator | failed to update peer limit ", err)
+			}
+		}
+	}()
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			_, err := limiter.ExportMap()
+			if err != nil {
+				fmt.Println("limiter | failed to export map ", err)
 			}
 		}
 	}()
