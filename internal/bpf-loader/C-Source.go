@@ -22,6 +22,7 @@ struct packet_counter {
 };
 
 BPF_TABLE("hash", struct packet_info, struct packet_counter, pkt_counter, 1024);
+BPF_TABLE("hash", uint32_t, int, ip_whitelist, 1024);
 
 int packet_counter(struct xdp_md *ctx){
 
@@ -30,9 +31,13 @@ int packet_counter(struct xdp_md *ctx){
 
 	struct ethhdr *eth = data;
     
-	struct packet_info key = {};
-	struct packet_counter default_value = {};
-	struct packet_counter *value;
+	struct packet_info pkt_cap_key = {};
+	struct packet_counter pkt_cap_dft_value = {};
+	struct packet_counter *pkt_cap_value;
+	
+	uint32_t ip_whitelist_dft_key;
+	int ip_whitelist_dft_value = XDP_PASS;
+	int *ip_whitelist_value;
 
 	int ipSize = 0;
 
@@ -46,16 +51,22 @@ int packet_counter(struct xdp_md *ctx){
 		return XDP_DROP;
 	}
 
-	key.family = ip->protocol;
-	key.s_v4_addr = ip->saddr;
-	key.d_v4_addr = ip->daddr;
+	pkt_cap_key.family = ip->protocol;
+	pkt_cap_key.s_v4_addr = ip->saddr;
+	pkt_cap_key.d_v4_addr = ip->daddr;
 
 	if (ip->daddr==LOCAL_ADDR) {
-		value = pkt_counter.lookup_or_try_init(&key, &default_value);
-		if (value) {
+		pkt_cap_value = pkt_counter.lookup_or_try_init(&pkt_cap_key, &pkt_cap_dft_value);
+		if (pkt_cap_value) {
 			__u64 bytes = data_end - data; /* Calculate packet length */
-			__sync_fetch_and_add(&value->rx_packets, 1);
-			__sync_fetch_and_add(&value->rx_bytes, bytes);
+			__sync_fetch_and_add(&pkt_cap_value->rx_packets, 1);
+			__sync_fetch_and_add(&pkt_cap_value->rx_bytes, bytes);
+		}
+		
+		ip_whitelist_dft_key = ip->saddr;
+		ip_whitelist_value = ip_whitelist.lookup_or_try_init(&ip_whitelist_dft_key, &ip_whitelist_dft_value);
+		if (ip_whitelist_value) {
+			return *ip_whitelist_value;
 		}
 	}
 
