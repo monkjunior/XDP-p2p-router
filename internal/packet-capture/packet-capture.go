@@ -92,6 +92,6 @@ func (p *PacketCapture) ExportMap() (result []bpf_maps.PktCounterMapItem, err er
 		result = append(result, mapItem)
 
 	}
-	fmt.Println(result)
+	fmt.Printf("number of peers in map %s: %d\n", bpf_maps.PacketCaptureMap, len(result))
 	return result, nil
 }

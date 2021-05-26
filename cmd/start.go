@@ -69,7 +69,7 @@ func execStartCmd(startCmd *cobra.Command, args []string) {
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
-			locator.AddPeers()
+			locator.UpdatePeersToDB()
 		}
 	}()
 

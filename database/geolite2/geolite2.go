@@ -109,5 +109,9 @@ func (g *GeoLite2) DistanceToHost(latitude, longitude float64) (distance float64
 	R := 6373.0
 
 	distance = R * c
+	if distance == math.NaN() {
+		return 0
+	}
+
 	return distance
 }

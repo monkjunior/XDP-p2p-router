@@ -1,6 +1,7 @@
 package ip2location
 
 import (
+	"fmt"
 	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
 	"github.com/vu-ngoc-son/XDP-p2p-router/database/geolite2"
 	packetCapture "github.com/vu-ngoc-son/XDP-p2p-router/internal/packet-capture"
@@ -21,7 +22,7 @@ func NewLocator(p *packetCapture.PacketCapture, db *dbSqlite.SQLiteDB, g *geolit
 	}
 }
 
-func (l *Locator) AddPeers() {
+func (l *Locator) UpdatePeersToDB() {
 	pktCounterMap, err := l.PacketCapture.ExportMap()
 	if err != nil {
 		return
@@ -37,5 +38,6 @@ func (l *Locator) AddPeers() {
 		go l.DB.UpdateOrCreatePeer(peer, &wg)
 	}
 	wg.Wait()
+	fmt.Println("update peers from bpf map to sqlite db successfully")
 	return
 }
