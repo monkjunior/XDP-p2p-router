@@ -11,7 +11,8 @@ import (
 )
 
 type SQLiteDB struct {
-	DB *gorm.DB
+	DB       *gorm.DB
+	HostInfo *database.Hosts
 }
 
 func NewSQLite(filePath string) (*SQLiteDB, error) {

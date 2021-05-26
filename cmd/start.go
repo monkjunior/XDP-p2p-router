@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/vu-ngoc-son/XDP-p2p-router/internal/compute"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/ip2location"
 	"os"
 	"os/signal"
@@ -46,6 +47,18 @@ func execStartCmd(startCmd *cobra.Command, args []string) {
 		return
 	}
 
+	hostInfo, err := geoDB.HostInfo()
+	if err != nil {
+		fmt.Println("failed to query host info", err)
+		return
+	}
+
+	err = sqliteDB.CreateHost(hostInfo)
+	if err != nil {
+		fmt.Println("failed to add host info to database", err)
+		return
+	}
+
 	m := bpfLoader.LoadModule(device)
 	p, err := packetCapture.Start(device, m)
 	if err != nil {
@@ -55,6 +68,7 @@ func execStartCmd(startCmd *cobra.Command, args []string) {
 	defer packetCapture.Close(device, m)
 
 	locator := ip2location.NewLocator(p, sqliteDB, geoDB)
+	calculator := compute.NewCalculator(sqliteDB)
 
 	fmt.Println("starting router ... Ctrl+C to stop.")
 	signals := make(chan os.Signal, 1)
@@ -70,6 +84,16 @@ func execStartCmd(startCmd *cobra.Command, args []string) {
 		for {
 			time.Sleep(5 * time.Second)
 			locator.UpdatePeersToDB()
+		}
+	}()
+
+	go func() {
+		for {
+			time.Sleep(15 * time.Second)
+			err := calculator.UpdatePeersLimit()
+			if err != nil {
+				fmt.Println("calculator | failed to update peer limit ", err)
+			}
 		}
 	}()
 

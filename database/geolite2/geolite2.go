@@ -99,6 +99,45 @@ func (g *GeoLite2) IPInfo(ipAddress string) (*database.Peers, error) {
 	}, nil
 }
 
+func (g *GeoLite2) HostInfo() (*database.Hosts, error) {
+	ipAddress, err := common.GetMyPublicIP()
+	if err != nil {
+		return nil, err
+	}
+
+	IP := net.ParseIP(ipAddress)
+	asnRecord, err := g.ASN.ASN(IP)
+	if err != nil {
+		fmt.Println("error while querying asn", common.ErrFailedToQueryGeoLite2)
+		return nil, err
+	}
+	cityRecord, err := g.City.City(IP)
+	if err != nil {
+		fmt.Println("error while querying city", common.ErrFailedToQueryGeoLite2)
+		return nil, err
+	}
+	countryRecord, err := g.Country.Country(IP)
+	if err != nil {
+		fmt.Println("error while querying country", common.ErrFailedToQueryGeoLite2)
+		return nil, err
+	}
+
+	latitude := cityRecord.Location.Latitude
+	longitude := cityRecord.Location.Longitude
+
+	distance := 0.0
+
+	return &database.Hosts{
+		Ip:          ipAddress,
+		Asn:         asnRecord.AutonomousSystemNumber,
+		Isp:         asnRecord.AutonomousSystemOrganization,
+		CountryCode: countryRecord.Country.IsoCode,
+		Longitude:   longitude,
+		Latitude:    latitude,
+		Distance:    distance,
+	}, nil
+}
+
 func (g *GeoLite2) DistanceToHost(latitude, longitude float64) (distance float64) {
 	deltaLong := longitude - g.HostLongitude
 	deltaLat := latitude - g.HostLatitude
