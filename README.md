@@ -25,3 +25,9 @@ XDP-p2p-router -h
 
 XDP-p2p-router start --device <your-network-device>
 ```
+
+## Libraries to build UI and charts
+
+- [termui](https://github.com/gizak/termui)
+
+- [go-echart](https://github.com/go-echarts/go-echarts)
