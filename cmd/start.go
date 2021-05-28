@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/compute"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/ip2location"
-	limit_band "github.com/vu-ngoc-son/XDP-p2p-router/internal/limit-band"
+	limitBand "github.com/vu-ngoc-son/XDP-p2p-router/internal/limit-band"
+	"github.com/vu-ngoc-son/XDP-p2p-router/internal/monitor"
 	"os"
 	"os/signal"
 	"syscall"
@@ -35,10 +36,10 @@ func init() {
 }
 
 func execStartCmd(_ *cobra.Command, _ []string) {
-	asnDBPath := fmt.Sprintf("./data/geolite2/GeoLite2-ASN_%s/GeoLite2-ASN.mmdb", "20210525")
-	cityDBPath := fmt.Sprintf("./data/geolite2/GeoLite2-City_%s/GeoLite2-City.mmdb", "20210525")
-	countryDBPath := fmt.Sprintf("./data/geolite2/GeoLite2-Country_%s/GeoLite2-Country.mmdb", "20210525")
-	sqliteDBPath := "./data/sqlite/p2p-router.db"
+	asnDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-ASN_%s/GeoLite2-ASN.mmdb", "20210504")
+	cityDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-City_%s/GeoLite2-City.mmdb", "20210427")
+	countryDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-Country_%s/GeoLite2-Country.mmdb", "20210427")
+	sqliteDBPath := "/home/ted/TheFirstProject/XDP-p2p-router/data/sqlite/p2p-router.db"
 
 	geoDB := geolite2.NewGeoLite2(asnDBPath, cityDBPath, countryDBPath)
 
@@ -67,24 +68,26 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 	defer packetCapture.Close(device, m)
-	limiter, err := limit_band.NewLimiter(m)
+	limiter, err := limitBand.NewLimiter(m)
 	if err != nil {
 		fmt.Println("failed to init limiter module")
 		os.Exit(1)
 	}
-	defer limit_band.Close(device, m)
+	defer limitBand.Close(device, m)
 
 	locator := ip2location.NewLocator(pktCapture, sqliteDB, geoDB)
 	calculator := compute.NewCalculator(sqliteDB)
+	watchDog := monitor.NewMonitor(pktCapture, limiter, sqliteDB)
 
 	fmt.Println("starting router ... Ctrl+C to stop.")
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	done := make(chan bool)
-
+	exitWatchdog := make(chan int)
 	go func() {
 		sig := <-signals
 		fmt.Printf("\n%v\n", sig)
+		exitWatchdog <- 1
 		done <- true
 	}()
 
@@ -122,6 +125,8 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 			}
 		}
 	}()
+
+	watchDog.ExportThroughput(&exitWatchdog, 1)
 
 	_ = <-done
 	fmt.Println("shutting down gracefully ...")

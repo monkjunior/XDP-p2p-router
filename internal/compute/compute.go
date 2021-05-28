@@ -46,7 +46,7 @@ func (c ServiceCalculator) UpdatePeersLimit() error {
 
 //LimitByIP calculate limit bandwidth of a specific ip address
 func (c ServiceCalculator) LimitByIP(p database.Peers, updateDB bool) (*database.Limits, error) {
-	var limit float64 = B
+	limit := B
 	n1, n2, n3, f1, f2, f3 := c.prepareArgs(p)
 
 	logicalDistance := f1*math.Exp(-1/(n1+e)) + f2*math.Exp(-1/(n2+e)) + f3*math.Exp(-1/n3+e)

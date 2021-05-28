@@ -30,7 +30,7 @@ func (l *Locator) UpdatePeersToDB() {
 	var wg sync.WaitGroup
 	wg.Add(len(pktCounterMap))
 	for _, item := range pktCounterMap {
-		peer, err := l.GeoDB.IPInfo(item.Key.SourceAddr)
+		peer, err := l.GeoDB.IPInfo(item.Key)
 		if err != nil {
 			return
 		}

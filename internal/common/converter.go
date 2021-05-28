@@ -1,8 +1,9 @@
 package common
 
 import (
-	"encoding/binary"
 	"fmt"
+	"github.com/iovisor/gobpf/bcc"
+	"net"
 )
 
 //ConvertUint8ToIP quickly convert raw data to string format of IP without doing any validation
@@ -21,7 +22,7 @@ func ConvertUint8ToUInt32(rawData []uint8) (uint32, error) {
 	if len(rawData) != 4 {
 		return 0, ErrFailedToConvertUint32
 	}
-	result := binary.LittleEndian.Uint32(rawData)
+	result := bcc.GetHostByteOrder().Uint32(rawData)
 	return result, nil
 }
 
@@ -29,6 +30,15 @@ func ConvertUint8ToUInt64(rawData []uint8) (uint64, error) {
 	if len(rawData) != 8 {
 		return 0, ErrFailedToConvertUint64
 	}
-	result := binary.LittleEndian.Uint64(rawData)
+	result := bcc.GetHostByteOrder().Uint64(rawData)
 	return result, nil
+}
+
+func ConvertIPToUint32(ipStr string) (uint32, error) {
+	IP := net.ParseIP(ipStr)
+	if IP == nil {
+		return 0, ErrWrongIPFormat
+	}
+	IP = IP.To4()
+	return bcc.GetHostByteOrder().Uint32(IP), nil
 }

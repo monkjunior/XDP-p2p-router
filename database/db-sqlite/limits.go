@@ -10,3 +10,17 @@ func (s *SQLiteDB) UpdatePeerLimit(l *database.Limits) error {
 
 	return r.Error
 }
+
+func (s *SQLiteDB) ListIPsFromLimitsTable() ([]string, error) {
+	var listPeers []database.Limits
+	result := s.DB.Model(database.Limits{}).Find(&listPeers)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	IPs := make([]string, len(listPeers))
+	for i, p := range listPeers {
+		IPs[i] = p.Ip
+	}
+	return IPs, nil
+}

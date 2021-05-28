@@ -21,7 +21,7 @@ struct packet_counter {
     __u64 rx_bytes;
 };
 
-BPF_TABLE("hash", struct packet_info, struct packet_counter, pkt_counter, 1024);
+BPF_TABLE("hash", uint32_t, struct packet_counter, pkt_counter, 1024);
 BPF_TABLE("hash", uint32_t, int, ip_whitelist, 1024);
 
 int packet_counter(struct xdp_md *ctx){
@@ -31,7 +31,7 @@ int packet_counter(struct xdp_md *ctx){
 
 	struct ethhdr *eth = data;
     
-	struct packet_info pkt_cap_key = {};
+	uint32_t pkt_cap_key;
 	struct packet_counter pkt_cap_dft_value = {};
 	struct packet_counter *pkt_cap_value;
 	
@@ -51,9 +51,7 @@ int packet_counter(struct xdp_md *ctx){
 		return XDP_DROP;
 	}
 
-	pkt_cap_key.family = ip->protocol;
-	pkt_cap_key.s_v4_addr = ip->saddr;
-	pkt_cap_key.d_v4_addr = ip->daddr;
+	pkt_cap_key= ip->saddr;
 
 	if (ip->daddr==LOCAL_ADDR) {
 		pkt_cap_value = pkt_counter.lookup_or_try_init(&pkt_cap_key, &pkt_cap_dft_value);

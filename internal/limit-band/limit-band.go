@@ -47,6 +47,5 @@ func (p *BandwidthLimiter) ExportMap() (result []bpfMaps.LimitBandMapItem, err e
 		result = append(result, mapItem)
 
 	}
-	fmt.Printf("peers in map %s: %d\n", bpfMaps.LimitBandMap, result)
 	return result, nil
 }

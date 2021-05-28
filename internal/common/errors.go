@@ -9,4 +9,5 @@ var (
 	ErrFailedToConvertUint64 = errors.New("failed to parse uint64")
 	ErrFailedToQueryGeoLite2 = errors.New("failed to query geolite2")
 	ErrFailedToCloseGeoLite2 = errors.New("failed to close geolite2")
+	ErrWrongIPFormat         = errors.New("wrong ip address format")
 )

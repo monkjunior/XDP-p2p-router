@@ -58,16 +58,6 @@ func (p *PacketCapture) ExportMap() (result []bpf_maps.PktCounterMapItem, err er
 			return nil, err
 		}
 
-		destAddr, err := common.ConvertUint8ToIP(keyRaw[4:8])
-		if err != nil {
-			return nil, err
-		}
-
-		family, err := common.ConvertUint8ToUInt32(keyRaw[8:12])
-		if err != nil {
-			return nil, err
-		}
-
 		rxPackets, err := common.ConvertUint8ToUInt64(valueRaw[0:8])
 		if err != nil {
 			return nil, err
@@ -79,11 +69,7 @@ func (p *PacketCapture) ExportMap() (result []bpf_maps.PktCounterMapItem, err er
 		}
 
 		mapItem := bpf_maps.PktCounterMapItem{
-			Key: bpf_maps.PktCounterKey{
-				SourceAddr: sourceAddr,
-				DestAddr:   destAddr,
-				Family:     family,
-			},
+			Key: sourceAddr,
 			Value: bpf_maps.PktCounterValue{
 				RxPackets: rxPackets,
 				RxBytes:   rxBytes,
@@ -92,6 +78,5 @@ func (p *PacketCapture) ExportMap() (result []bpf_maps.PktCounterMapItem, err er
 		result = append(result, mapItem)
 
 	}
-	fmt.Printf("number of peers in map %s: %d\n", bpf_maps.PacketCaptureMap, len(result))
 	return result, nil
 }
