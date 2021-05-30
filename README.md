@@ -30,4 +30,6 @@ XDP-p2p-router start --device <your-network-device>
 
 - [termui](https://github.com/gizak/termui)
 
+  - [wiki](https://github.com/gizak/termui/wiki)
+
 - [go-echart](https://github.com/go-echarts/go-echarts)
