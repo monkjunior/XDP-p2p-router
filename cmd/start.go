@@ -170,16 +170,16 @@ func initWidgets() {
 
 	peerStatsTable = widgets.NewTable()
 	peerStatsTable.Rows = [][]string{
-		[]string{"header1", "header2", "header3"},
-		[]string{"你好吗", "Go-lang is so cool", "Im working on Ruby"},
-		[]string{"2016", "10", "11"},
+		{"header1", "header2", "header3"},
+		{"你好吗", "Go-lang is so cool", "Im working on Ruby"},
+		{"2016", "10", "11"},
 	}
 
 	whiteList = widgets.NewTable()
 	whiteList.Rows = [][]string{
-		[]string{"header1", "header2", "header3"},
-		[]string{"你好吗", "Go-lang is so cool", "Im working on Ruby"},
-		[]string{"2016", "10", "11"},
+		{"header1", "header2", "header3"},
+		{"你好吗", "Go-lang is so cool", "Im working on Ruby"},
+		{"2016", "10", "11"},
 	}
 
 	basicInfo = widgets.NewParagraph()
