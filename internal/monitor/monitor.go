@@ -32,6 +32,7 @@ func NewMonitor(p *packetCapture.PacketCapture, l *limitBand.BandwidthLimiter, d
 
 func (m *Monitor) updatePool() error {
 	listIPs, err := m.DB.ListIPsFromLimitsTable(5)
+  
 	if err != nil {
 		return err
 	}

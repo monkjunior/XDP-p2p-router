@@ -14,6 +14,7 @@ func (s *SQLiteDB) UpdatePeerLimit(l *database.Limits) error {
 	return r.Error
 }
 
+
 func (s *SQLiteDB) ListIPsFromLimitsTable(rows int) ([][]string, error) {
 	var listPeers []database.Limits
 	result := s.DB.Model(database.Limits{}).Order("bandwidth DESC").Limit(rows).Find(&listPeers)

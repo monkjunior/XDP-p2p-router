@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gizak/termui/v3/widgets"
 	"log"
+
 	"math"
 	"os"
 	"time"
@@ -31,6 +32,7 @@ var (
 	peerStatsTable *widgets.Table
 	whiteList      *widgets.Table
 	basicInfo      *widgets.Paragraph
+
 )
 
 // startCmd represents the start command
@@ -90,6 +92,7 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 
 	stderrLogger.Println("starting router ... Ctrl+C to stop.")
 
+
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
@@ -129,6 +132,7 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 		stderrLogger.Fatalln("failed to initialize termui: %v\n", err)
 	}
 	defer ui.Close()
+
 
 	initWidgets()
 
