@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"github.com/vu-ngoc-son/XDP-p2p-router/database"
 )
@@ -25,7 +26,9 @@ func NewSQLite(filePath string) (*SQLiteDB, error) {
 		}
 	}
 
-	db, err := gorm.Open(sqlite.Open(filePath), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(filePath), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		fmt.Printf("error while connecting to SQLiteDB db %v\n", err)
 		return nil, err
