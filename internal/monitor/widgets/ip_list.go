@@ -9,18 +9,20 @@ import (
 
 type IPList struct {
 	*widgets.Table
-	DB *dbSqlite.SQLiteDB
+	DB             *dbSqlite.SQLiteDB
 	updateInterval time.Duration
 }
 
 func NewIPList(db *dbSqlite.SQLiteDB, updateInterval time.Duration) *IPList {
 	self := &IPList{
-		Table: widgets.NewTable(),
-		DB: db,
+		Table:          widgets.NewTable(),
+		DB:             db,
 		updateInterval: updateInterval,
 	}
 
-	self.Title = "limit of ips"
+	self.Title = "top 5 bandwidths of ips"
+	self.ColumnResizer()
+	self.SetRect(5, 5, 60, 20)
 
 	self.update()
 
@@ -37,12 +39,10 @@ func (s *IPList) update() {
 	s.Rows = [][]string{
 		{"ip", "limit"},
 	}
-	listIPs, err := s.DB.ListIPsFromLimitsTable()
+	listIPs, err := s.DB.ListIPsFromLimitsTable(6)
 	if err != nil {
 
 		return
 	}
 	s.Rows = append(s.Rows, listIPs...)
-
-	s.SetRect(5, 5, 60, 5 + 5*len(s.Table.Rows))
 }

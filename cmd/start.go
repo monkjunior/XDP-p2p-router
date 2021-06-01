@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/gizak/termui/v3/widgets"
 	"log"
+
+	"math"
 	"os"
 	"time"
 
@@ -15,8 +17,7 @@ import (
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/compute"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/ip2location"
 	limitBand "github.com/vu-ngoc-son/XDP-p2p-router/internal/limit-band"
-	//"github.com/vu-ngoc-son/XDP-p2p-router/internal/monitor"
-	myWidgets "github.com/vu-ngoc-son/XDP-p2p-router/internal/monitor/widgets"
+	myWidget "github.com/vu-ngoc-son/XDP-p2p-router/internal/monitor/widgets"
 	packetCapture "github.com/vu-ngoc-son/XDP-p2p-router/internal/packet-capture"
 )
 
@@ -24,6 +25,14 @@ var (
 	device string
 
 	stderrLogger = log.New(os.Stderr, "", 0)
+
+	grid           *ui.Grid
+	ipStats        *myWidget.IPStats
+	peerStatsPie   *widgets.PieChart
+	peerStatsTable *widgets.Table
+	whiteList      *widgets.Table
+	basicInfo      *widgets.Paragraph
+
 )
 
 // startCmd represents the start command
@@ -83,7 +92,6 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 
 	stderrLogger.Println("starting router ... Ctrl+C to stop.")
 
-	done := make(chan bool)
 
 	go func() {
 		for {
@@ -125,69 +133,73 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 	}
 	defer ui.Close()
 
-	header := widgets.NewParagraph()
-	header.Text = "Press q to quit, Press h or l to switch tabs"
-	header.SetRect(0, 0, 50, 1)
-	header.Border = true
-	header.TextStyle.Fg = ui.ColorWhite
 
-	p2 := widgets.NewParagraph()
-	p2.Text = fmt.Sprintf(`
-Public IP: %s
-Private IP: %s
-`, )
-	p2.Title = "Basic information"
-	p2.SetRect(5, 5, 40, 15)
-	p2.BorderStyle.Fg = ui.ColorYellow
+	initWidgets()
 
-	bc := widgets.NewBarChart()
-	bc.Title = "Bar Chart"
-	bc.Data = []float64{3, 2, 5, 3, 9, 5, 3, 2, 5, 8, 3, 2, 4, 5, 3, 2, 5, 7, 5, 3, 2, 6, 7, 4, 6, 3, 6, 7, 8, 3, 6, 4, 5, 3, 2, 4, 6, 4, 8, 5, 9, 4, 3, 6, 5, 3, 6}
-	bc.SetRect(5, 5, 35, 10)
-	bc.Labels = []string{"S0", "S1", "S2", "S3", "S4", "S5"}
+	setupGrid()
+	termWidth, termHeight := ui.TerminalDimensions()
+	fmt.Println(termHeight, termWidth)
+	grid.SetRect(0, 0, termWidth-1, termHeight-1)
+	ui.Render(grid)
 
-	tabpane := widgets.NewTabPane("basic info", "drugi", "limits", "żółw", "four", "five")
-	tabpane.SetRect(0, 1, 50, 4)
-	tabpane.Border = true
+	eventLoop()
+}
 
-	limitsWidget := myWidgets.NewIPList(sqliteDB, time.Second)
+func setupGrid() {
+	grid = ui.NewGrid()
 
-	renderTab := func() {
-		switch tabpane.ActiveTabIndex {
-		case 0:
-			ui.Render(p2)
-		case 1:
-			ui.Render(bc)
-		case 2:
-			ui.Render(limitsWidget)
-		}
+	grid.Set(
+		ui.NewRow(1.0/2,
+			ui.NewCol(1.0/2, ipStats),
+			ui.NewCol(1.0/4, peerStatsPie),
+			ui.NewCol(1.0/4, peerStatsTable),
+		),
+		ui.NewRow(1.0/2,
+			ui.NewCol(1.0/2, basicInfo),
+			ui.NewCol(1.0/2, whiteList),
+		),
+	)
+}
+
+func initWidgets() {
+	ipStats = myWidget.NewIPStats(1)
+
+	peerStatsPie = widgets.NewPieChart()
+	peerStatsPie.Title = "Pie Chart"
+	peerStatsPie.Data = []float64{.25, .25, .25, .25}
+	peerStatsPie.AngleOffset = -.5 * math.Pi
+	peerStatsPie.LabelFormatter = func(i int, v float64) string {
+		return fmt.Sprintf("%.02f", v)
 	}
 
-	ui.Render(header, tabpane, p2)
+	peerStatsTable = widgets.NewTable()
+	peerStatsTable.Rows = [][]string{
+		{"header1", "header2", "header3"},
+		{"你好吗", "Go-lang is so cool", "Im working on Ruby"},
+		{"2016", "10", "11"},
+	}
 
+	whiteList = widgets.NewTable()
+	whiteList.Rows = [][]string{
+		{"header1", "header2", "header3"},
+		{"你好吗", "Go-lang is so cool", "Im working on Ruby"},
+		{"2016", "10", "11"},
+	}
+
+	basicInfo = widgets.NewParagraph()
+	basicInfo.Text = "Hahaha"
+}
+
+func eventLoop() {
 	uiEvents := ui.PollEvents()
 
-	go func() {
-		for {
-			e := <-uiEvents
-
+	for {
+		select {
+		case e := <-uiEvents:
 			switch e.ID {
 			case "q", "<C-c>":
-				done <- true
-			case "h":
-				tabpane.FocusLeft()
-				ui.Clear()
-				ui.Render(header, tabpane)
-				renderTab()
-			case "l":
-				tabpane.FocusRight()
-				ui.Clear()
-				ui.Render(header, tabpane)
-				renderTab()
+				return
 			}
 		}
-	}()
-
-	finished := <-done
-	stderrLogger.Println("stopping router done %v\n", finished)
+	}
 }
