@@ -2,18 +2,19 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/gizak/termui/v3/widgets"
 	"log"
+	"net"
 
-	"math"
 	"os"
 	"time"
 
 	ui "github.com/gizak/termui/v3"
+	"github.com/gizak/termui/v3/widgets"
 	"github.com/spf13/cobra"
 	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
 	"github.com/vu-ngoc-son/XDP-p2p-router/database/geolite2"
 	bpfLoader "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-loader"
+	"github.com/vu-ngoc-son/XDP-p2p-router/internal/common"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/compute"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/ip2location"
 	limitBand "github.com/vu-ngoc-son/XDP-p2p-router/internal/limit-band"
@@ -26,13 +27,22 @@ var (
 
 	stderrLogger = log.New(os.Stderr, "", 0)
 
+	hostPublicIP  string
+	hostPrivateIP net.IP
+
+	geoDB    *geolite2.GeoLite2
+	sqliteDB *dbSqlite.SQLiteDB
+
+	// TODO: this should be configurable
+	fakeData       bool
+	updateInterval = time.Second
+
 	grid           *ui.Grid
 	ipStats        *myWidget.IPStats
-	peerStatsPie   *widgets.PieChart
-	peerStatsTable *widgets.Table
-	whiteList      *widgets.Table
+	peerStatsPie   *myWidget.PeersPie
+	peerStatsTable *myWidget.PeersTable
+	whiteList      *myWidget.WhiteList
 	basicInfo      *widgets.Paragraph
-
 )
 
 // startCmd represents the start command
@@ -43,25 +53,38 @@ var startCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(startCmd)
-
-	startCmd.Flags().StringVar(&device, "device", "wlp8s0", "network interface that you want to attach this program to it")
-}
-
-func execStartCmd(_ *cobra.Command, _ []string) {
+	// TODO: these vars should be configurable
 	asnDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-ASN_%s/GeoLite2-ASN.mmdb", "20210504")
 	cityDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-City_%s/GeoLite2-City.mmdb", "20210427")
 	countryDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-Country_%s/GeoLite2-Country.mmdb", "20210427")
 	sqliteDBPath := "/home/ted/TheFirstProject/XDP-p2p-router/data/sqlite/p2p-router.db"
 
-	geoDB := geolite2.NewGeoLite2(asnDBPath, cityDBPath, countryDBPath)
+	rootCmd.AddCommand(startCmd)
 
-	sqliteDB, err := dbSqlite.NewSQLite(sqliteDBPath)
+	startCmd.Flags().StringVar(&device, "device", "wlp8s0", "network interface that you want to attach this program to it")
+
+	var err error
+
+	hostPublicIP, err = common.GetMyPublicIP()
+	if err != nil {
+		stderrLogger.Fatalln("failed to get host public ip: ", err)
+	}
+
+	hostPrivateIP, err = common.GetMyPrivateIP(device)
+	if err != nil {
+		stderrLogger.Fatalln("failed to get host private ip: ", err)
+	}
+
+	geoDB = geolite2.NewGeoLite2(asnDBPath, cityDBPath, countryDBPath, hostPublicIP)
+
+	sqliteDB, err = dbSqlite.NewSQLite(sqliteDBPath)
 	if err != nil {
 		stderrLogger.Fatalln("failed to connect to sqlite", err)
 		return
 	}
+}
 
+func execStartCmd(_ *cobra.Command, _ []string) {
 	hostInfo, err := geoDB.HostInfo()
 	if err != nil {
 		stderrLogger.Fatalln("failed to query host info", err)
@@ -74,7 +97,7 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 		return
 	}
 
-	m := bpfLoader.LoadModule(device)
+	m := bpfLoader.LoadModule(hostPrivateIP)
 	pktCapture, err := packetCapture.Start(device, m)
 	if err != nil {
 		stderrLogger.Fatalln("failed to start packet capture module", err)
@@ -91,7 +114,6 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 	//watchDog := monitor.NewMonitor(pktCapture, limiter, sqliteDB)
 
 	stderrLogger.Println("starting router ... Ctrl+C to stop.")
-
 
 	go func() {
 		for {
@@ -133,13 +155,13 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 	}
 	defer ui.Close()
 
-
-	initWidgets()
+	fakeData = true
+	initWidgets(fakeData)
 
 	setupGrid()
 	termWidth, termHeight := ui.TerminalDimensions()
 	fmt.Println(termHeight, termWidth)
-	grid.SetRect(0, 0, termWidth-1, termHeight-1)
+	grid.SetRect(0, 0, termWidth, termHeight)
 	ui.Render(grid)
 
 	eventLoop()
@@ -161,36 +183,21 @@ func setupGrid() {
 	)
 }
 
-func initWidgets() {
-	ipStats = myWidget.NewIPStats(1)
-
-	peerStatsPie = widgets.NewPieChart()
-	peerStatsPie.Title = "Pie Chart"
-	peerStatsPie.Data = []float64{.25, .25, .25, .25}
-	peerStatsPie.AngleOffset = -.5 * math.Pi
-	peerStatsPie.LabelFormatter = func(i int, v float64) string {
-		return fmt.Sprintf("%.02f", v)
-	}
-
-	peerStatsTable = widgets.NewTable()
-	peerStatsTable.Rows = [][]string{
-		{"header1", "header2", "header3"},
-		{"你好吗", "Go-lang is so cool", "Im working on Ruby"},
-		{"2016", "10", "11"},
-	}
-
-	whiteList = widgets.NewTable()
-	whiteList.Rows = [][]string{
-		{"header1", "header2", "header3"},
-		{"你好吗", "Go-lang is so cool", "Im working on Ruby"},
-		{"2016", "10", "11"},
-	}
-
+func initWidgets(fakeData bool) {
+	ipStats = myWidget.NewIPStats(updateInterval, sqliteDB, fakeData)
+	peerStatsPie = myWidget.NewPeersPie(updateInterval, sqliteDB, fakeData)
+	peerStatsTable = myWidget.NewPeersTable(updateInterval, sqliteDB, fakeData)
+	whiteList = myWidget.NewWhiteList(updateInterval, sqliteDB, fakeData)
 	basicInfo = widgets.NewParagraph()
-	basicInfo.Text = "Hahaha"
+	basicInfo.Text = fmt.Sprintf(
+		"Public IP: %s\nPrivate IP: %s\n",
+		hostPublicIP, hostPrivateIP.String(),
+	)
+
 }
 
 func eventLoop() {
+	drawTicker := time.NewTicker(updateInterval).C
 	uiEvents := ui.PollEvents()
 
 	for {
@@ -200,6 +207,11 @@ func eventLoop() {
 			case "q", "<C-c>":
 				return
 			}
+		case <-drawTicker:
+			termWidth, termHeight := ui.TerminalDimensions()
+			grid.SetRect(0, 0, termWidth, termHeight)
+			ui.Render(grid)
 		}
 	}
+
 }
