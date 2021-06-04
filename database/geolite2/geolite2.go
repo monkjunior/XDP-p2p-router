@@ -11,10 +11,11 @@ import (
 
 type GeoLite2 struct {
 	ASN, City, Country          *geoip2.Reader
+	HostPublicIP                string
 	HostLongitude, HostLatitude float64
 }
 
-func NewGeoLite2(asnDBPath, cityDBPath, countryDBPath string) *GeoLite2 {
+func NewGeoLite2(asnDBPath, cityDBPath, countryDBPath, hostPublicIP string) *GeoLite2 {
 	asnDB, err := geoip2.Open(asnDBPath)
 	if err != nil {
 		return nil
@@ -30,10 +31,6 @@ func NewGeoLite2(asnDBPath, cityDBPath, countryDBPath string) *GeoLite2 {
 		return nil
 	}
 
-	hostPublicIP, err := common.GetMyPublicIP()
-	if err != nil {
-		return nil
-	}
 	cityRecord, err := cityDB.City(net.ParseIP(hostPublicIP))
 	if err != nil {
 		return nil
@@ -43,6 +40,7 @@ func NewGeoLite2(asnDBPath, cityDBPath, countryDBPath string) *GeoLite2 {
 		ASN:           asnDB,
 		City:          cityDB,
 		Country:       countryDB,
+		HostPublicIP:  hostPublicIP,
 		HostLatitude:  cityRecord.Location.Latitude,
 		HostLongitude: cityRecord.Location.Longitude,
 	}
@@ -100,12 +98,7 @@ func (g *GeoLite2) IPInfo(ipAddress string) (*database.Peers, error) {
 }
 
 func (g *GeoLite2) HostInfo() (*database.Hosts, error) {
-	ipAddress, err := common.GetMyPublicIP()
-	if err != nil {
-		return nil, err
-	}
-
-	IP := net.ParseIP(ipAddress)
+	IP := net.ParseIP(g.HostPublicIP)
 	asnRecord, err := g.ASN.ASN(IP)
 	if err != nil {
 		fmt.Println("error while querying asn", common.ErrFailedToQueryGeoLite2)
@@ -128,7 +121,7 @@ func (g *GeoLite2) HostInfo() (*database.Hosts, error) {
 	distance := 0.0
 
 	return &database.Hosts{
-		Ip:          ipAddress,
+		Ip:          g.HostPublicIP,
 		Asn:         asnRecord.AutonomousSystemNumber,
 		Isp:         asnRecord.AutonomousSystemOrganization,
 		CountryCode: countryRecord.Country.IsoCode,
