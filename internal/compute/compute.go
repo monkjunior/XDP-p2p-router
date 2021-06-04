@@ -61,7 +61,7 @@ func (c ServiceCalculator) LimitByIP(p database.Peers, updateDB bool) (*database
 	}
 
 	l := database.Limits{
-		Ip:        p.Ip,
+		Ip:        p.IpAddress,
 		Bandwidth: limit,
 	}
 

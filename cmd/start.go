@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+	"go.uber.org/zap"
 	"net"
-
-	"os"
 	"time"
 
 	ui "github.com/gizak/termui/v3"
@@ -18,6 +16,7 @@ import (
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/compute"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/ip2location"
 	limitBand "github.com/vu-ngoc-son/XDP-p2p-router/internal/limit-band"
+	"github.com/vu-ngoc-son/XDP-p2p-router/internal/logger"
 	myWidget "github.com/vu-ngoc-son/XDP-p2p-router/internal/monitor/widgets"
 	packetCapture "github.com/vu-ngoc-son/XDP-p2p-router/internal/packet-capture"
 )
@@ -25,7 +24,7 @@ import (
 var (
 	device string
 
-	stderrLogger = log.New(os.Stderr, "", 0)
+	myLogger = logger.GetLogger()
 
 	hostPublicIP  string
 	hostPrivateIP net.IP
@@ -70,19 +69,19 @@ func init() {
 
 	hostPublicIP, err = common.GetMyPublicIP()
 	if err != nil {
-		stderrLogger.Fatalln("failed to get host public ip: ", err)
+		myLogger.Fatal("failed to get host public ip: ", zap.Error(err))
 	}
 
 	hostPrivateIP, err = common.GetMyPrivateIP(device)
 	if err != nil {
-		stderrLogger.Fatalln("failed to get host private ip: ", err)
+		myLogger.Fatal("failed to get host private ip: ", zap.Error(err))
 	}
 
 	geoDB = geolite2.NewGeoLite2(asnDBPath, cityDBPath, countryDBPath, hostPublicIP)
 
 	sqliteDB, err = dbSqlite.NewSQLite(sqliteDBPath)
 	if err != nil {
-		stderrLogger.Fatalln("failed to connect to sqlite", err)
+		myLogger.Fatal("failed to connect to sqlite", zap.Error(err))
 		return
 	}
 }
@@ -90,25 +89,25 @@ func init() {
 func execStartCmd(_ *cobra.Command, _ []string) {
 	hostInfo, err := geoDB.HostInfo()
 	if err != nil {
-		stderrLogger.Fatalln("failed to query host info", err)
+		myLogger.Fatal("failed to query host info", zap.Error(err))
 		return
 	}
 
 	err = sqliteDB.CreateHost(hostInfo)
 	if err != nil {
-		stderrLogger.Fatalln("failed to add host info to database", err)
+		myLogger.Fatal("failed to add host info to database", zap.Error(err))
 		return
 	}
 
 	m := bpfLoader.LoadModule(hostPrivateIP)
 	pktCapture, err = packetCapture.Start(device, m)
 	if err != nil {
-		stderrLogger.Fatalln("failed to start packet capture module", err)
+		myLogger.Fatal("failed to start packet capture module", zap.Error(err))
 	}
 	defer packetCapture.Close(device, m)
 	limiter, err = limitBand.NewLimiter(m)
 	if err != nil {
-		stderrLogger.Fatalln("failed to init limiter module")
+		myLogger.Fatal("failed to init limiter module")
 	}
 	defer limitBand.Close(device, m)
 
@@ -116,7 +115,7 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 	calculator := compute.NewCalculator(sqliteDB)
 	//watchDog := monitor.NewMonitor(pktCapture, limiter, sqliteDB)
 
-	stderrLogger.Println("starting router ... Ctrl+C to stop.")
+	myLogger.Info("starting router ... Ctrl+C to stop.")
 
 	go func() {
 		for {
@@ -130,7 +129,7 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 			time.Sleep(15 * time.Second)
 			err := calculator.UpdatePeersLimit()
 			if err != nil {
-				stderrLogger.Println("calculator | failed to update peer limit ", err)
+				myLogger.Fatal("calculator | failed to update peer limit ", zap.Error(err))
 			}
 		}
 	}()
@@ -139,7 +138,7 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 			time.Sleep(15 * time.Second)
 			err := calculator.UpdatePeersLimit()
 			if err != nil {
-				stderrLogger.Println("calculator | failed to update peer limit ", err)
+				myLogger.Fatal("calculator | failed to update peer limit ", zap.Error(err))
 			}
 		}
 	}()
@@ -148,13 +147,13 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 			time.Sleep(5 * time.Second)
 			_, err := limiter.ExportMap()
 			if err != nil {
-				stderrLogger.Println("limiter | failed to export map ", err)
+				myLogger.Fatal("limiter | failed to export map ", zap.Error(err))
 			}
 		}
 	}()
 
 	if err := ui.Init(); err != nil {
-		stderrLogger.Fatalln("failed to initialize termui: %v\n", err)
+		myLogger.Fatal("failed to initialize termui: %v\n", zap.Error(err))
 	}
 	defer ui.Close()
 	setDefaultTermuiColors()

@@ -9,10 +9,20 @@ import (
 func (s *SQLiteDB) UpdateOrCreatePeer(peer *database.Peers, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	r := s.DB.Model(peer).Where("ip = ?", peer.Ip).Updates(peer)
+	r := s.DB.Model(peer).Where("ip_number = ?", peer.IpNumber).Updates(peer)
 	if r.RowsAffected == 0 {
 		r = s.DB.Model(database.Peers{}).Create(peer)
 	}
+}
+
+func (s *SQLiteDB) GetPeer(IP uint32) (database.Peers, error) {
+	var peer []database.Peers
+	result := s.DB.Model(database.Peers{}).Where("ip_number = ?", IP).First(&peer)
+	if result.Error != nil {
+		return database.Peers{}, result.Error
+	}
+
+	return peer[0], nil
 }
 
 func (s *SQLiteDB) GetPeers() ([]database.Peers, error) {

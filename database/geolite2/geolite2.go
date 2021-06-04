@@ -63,7 +63,16 @@ func (g *GeoLite2) Close() {
 	}
 }
 
-func (g *GeoLite2) IPInfo(ipAddress string) (*database.Peers, error) {
+func (g *GeoLite2) IPInfo(IPRaw []uint8) (*database.Peers, error) {
+	ipNumber, err := common.ConvertUint8ToUInt32(IPRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	ipAddress, err := common.ConvertUint8ToIP(IPRaw)
+	if err != nil {
+		return nil, err
+	}
 	IP := net.ParseIP(ipAddress)
 	asnRecord, err := g.ASN.ASN(IP)
 	if err != nil {
@@ -87,7 +96,8 @@ func (g *GeoLite2) IPInfo(ipAddress string) (*database.Peers, error) {
 	distance := g.DistanceToHost(latitude, longitude)
 
 	return &database.Peers{
-		Ip:          ipAddress,
+		IpAddress:   ipAddress,
+		IpNumber:    ipNumber,
 		Asn:         asnRecord.AutonomousSystemNumber,
 		Isp:         asnRecord.AutonomousSystemOrganization,
 		CountryCode: countryRecord.Country.IsoCode,
