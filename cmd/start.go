@@ -33,6 +33,9 @@ var (
 	geoDB    *geolite2.GeoLite2
 	sqliteDB *dbSqlite.SQLiteDB
 
+	pktCapture *packetCapture.PacketCapture
+	limiter    *limitBand.BandwidthLimiter
+
 	// TODO: this should be configurable
 	fakeData       bool
 	updateInterval = time.Second
@@ -98,12 +101,12 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 	}
 
 	m := bpfLoader.LoadModule(hostPrivateIP)
-	pktCapture, err := packetCapture.Start(device, m)
+	pktCapture, err = packetCapture.Start(device, m)
 	if err != nil {
 		stderrLogger.Fatalln("failed to start packet capture module", err)
 	}
 	defer packetCapture.Close(device, m)
-	limiter, err := limitBand.NewLimiter(m)
+	limiter, err = limitBand.NewLimiter(m)
 	if err != nil {
 		stderrLogger.Fatalln("failed to init limiter module")
 	}
@@ -154,7 +157,7 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 		stderrLogger.Fatalln("failed to initialize termui: %v\n", err)
 	}
 	defer ui.Close()
-
+	setDefaultTermuiColors()
 	fakeData = true
 	initWidgets(fakeData)
 
@@ -165,6 +168,11 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 	ui.Render(grid)
 
 	eventLoop()
+}
+
+func setDefaultTermuiColors() {
+	ui.Theme.Block.Title = ui.NewStyle(ui.ColorCyan)
+	ui.Theme.Block.Border = ui.NewStyle(ui.ColorGreen)
 }
 
 func setupGrid() {
@@ -184,13 +192,13 @@ func setupGrid() {
 }
 
 func initWidgets(fakeData bool) {
-	ipStats = myWidget.NewIPStats(updateInterval, sqliteDB, fakeData)
+	ipStats = myWidget.NewIPStats(updateInterval, sqliteDB, pktCapture.Table, limiter.Table, false)
 	peerStatsPie = myWidget.NewPeersPie(updateInterval, sqliteDB, fakeData)
 	peerStatsTable = myWidget.NewPeersTable(updateInterval, sqliteDB, fakeData)
 	whiteList = myWidget.NewWhiteList(updateInterval, sqliteDB, fakeData)
 	basicInfo = widgets.NewParagraph()
 	basicInfo.Text = fmt.Sprintf(
-		"Public IP: %s\nPrivate IP: %s\n",
+		"Public IP\t: %s\nPrivate IP\t: %s\n",
 		hostPublicIP, hostPrivateIP.String(),
 	)
 
