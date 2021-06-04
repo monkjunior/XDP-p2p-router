@@ -2,10 +2,11 @@ package packet_capture
 
 import (
 	"fmt"
-	bpf "github.com/iovisor/gobpf/bcc"
-	bpf_maps "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-maps"
-	"github.com/vu-ngoc-son/XDP-p2p-router/internal/common"
 	"os"
+
+	bpf "github.com/iovisor/gobpf/bcc"
+	bpfMaps "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-maps"
+	"github.com/vu-ngoc-son/XDP-p2p-router/internal/common"
 )
 
 /*
@@ -34,7 +35,7 @@ func Start(device string, module *bpf.Module) (*PacketCapture, error) {
 	}
 
 	return &PacketCapture{
-		Table: bpf.NewTable(module.TableId(bpf_maps.PacketCaptureMap), module),
+		Table: bpf.NewTable(module.TableId(bpfMaps.PacketCaptureMap), module),
 	}, nil
 }
 
@@ -45,18 +46,17 @@ func Close(device string, module *bpf.Module) {
 	fmt.Println("close packet capture module successfully")
 }
 
-func (p *PacketCapture) ExportMap() (result []bpf_maps.PktCounterMapItem, err error) {
+func (p *PacketCapture) ExportMap() (result []bpfMaps.PktCounterMapItem, err error) {
 	countersTable := p.Table
 
-	result = make([]bpf_maps.PktCounterMapItem, 0)
+	result = make([]bpfMaps.PktCounterMapItem, 0)
 	for item := countersTable.Iter(); item.Next(); {
+		if item.Err() != nil {
+			continue
+		}
+
 		keyRaw := item.Key()
 		valueRaw := item.Leaf()
-
-		sourceAddr, err := common.ConvertUint8ToIP(keyRaw[0:4])
-		if err != nil {
-			return nil, err
-		}
 
 		rxPackets, err := common.ConvertUint8ToUInt64(valueRaw[0:8])
 		if err != nil {
@@ -68,9 +68,9 @@ func (p *PacketCapture) ExportMap() (result []bpf_maps.PktCounterMapItem, err er
 			return nil, err
 		}
 
-		mapItem := bpf_maps.PktCounterMapItem{
-			Key: sourceAddr,
-			Value: bpf_maps.PktCounterValue{
+		mapItem := bpfMaps.PktCounterMapItem{
+			Key: keyRaw,
+			Value: bpfMaps.PktCounterValue{
 				RxPackets: rxPackets,
 				RxBytes:   rxBytes,
 			},

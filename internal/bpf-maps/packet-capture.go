@@ -6,6 +6,6 @@ type PktCounterValue struct {
 }
 
 type PktCounterMapItem struct {
-	Key   string
+	Key   []uint8
 	Value PktCounterValue
 }

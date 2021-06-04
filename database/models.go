@@ -11,13 +11,15 @@ type Hosts struct {
 }
 
 type Peers struct {
-	Ip          string `gorm:"primaryKey"`
+	IpNumber    uint32 `gorm:"primaryKey"`
+	IpAddress   string
 	Asn         uint
 	Isp         string
 	CountryCode string
 	Longitude   float64
 	Latitude    float64
 	Distance    float64
+	Bandwidth   float64
 }
 
 type Limits struct {

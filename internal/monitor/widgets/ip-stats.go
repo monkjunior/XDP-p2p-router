@@ -47,18 +47,19 @@ func NewIPStats(t time.Duration, db *dbSqlite.SQLiteDB, pktCap, whitelist *bpf.T
 }
 
 func (s *IPStats) updateIPStats(fakeData bool) {
+	s.Rows = [][]string{
+		{"ipv4", "country code", "throughput (bps)", "threshold band"},
+	}
 	if fakeData {
-		s.Rows = [][]string{
-			{"ipv4", "country code", "throughput", "threshold band"},
-		}
-		s.Rows = append(s.Rows, randomIPData(5, 10)...)
+		s.randomIPData(5, 10)
 		return
 	}
 
-	s.Rows = [][]string{
-		{"ipv4", "throughput"},
-	}
+	s.crawlIPData()
 
+}
+
+func (s *IPStats) crawlIPData() {
 	wg := sync.WaitGroup{}
 	for item := s.IPWhitelistMap.Iter(); item.Next(); {
 		if item.Err() != nil {
@@ -95,7 +96,7 @@ func (s *IPStats) updateIPStats(fakeData bool) {
 							interval += 1
 							continue
 						}
-						m.Store(key, (float64(current)-prev)/interval)
+						m.Store(key, (float64(current)-prev)*8/interval)
 						prev = float64(current)
 						interval = 1.0
 					}
@@ -106,31 +107,42 @@ func (s *IPStats) updateIPStats(fakeData bool) {
 	wg.Wait()
 
 	s.throughputMap.Range(func(k, v interface{}) bool {
+		p, err := s.DB.GetPeer(k.(uint32))
+		if err != nil {
+			s.Rows = append(s.Rows, []string{
+				fmt.Sprintf("%d", k),
+				"",
+				fmt.Sprintf("%.2f", v),
+				"",
+			})
+			return true
+		}
 		s.Rows = append(s.Rows, []string{
 			fmt.Sprintf("%d", k),
+			p.CountryCode,
 			fmt.Sprintf("%.2f", v),
+			fmt.Sprintf("%.2f", p.Bandwidth),
 		})
 		return true
 	})
 	return
 }
 
-func randomIPData(minRows, maxRows int) [][]string {
+func (s *IPStats) randomIPData(minRows, maxRows int) {
 	if maxRows < 0 || minRows > maxRows {
-		return nil
+		return
 	}
 
 	nRows := goRand.Number(minRows, maxRows)
-	data := make([][]string, nRows)
 
 	for i := 0; i < nRows; i++ {
-		data[i] = []string{
+		s.Rows = append(s.Rows, []string{
 			goRand.IpV4Address(),
 			goRand.Country(goRand.TwoCharCountry),
 			strconv.Itoa(goRand.Number(10000, 20000)),
 			strconv.Itoa(goRand.Number(10000, 20000)),
-		}
+		})
 	}
 
-	return data
+	return
 }
