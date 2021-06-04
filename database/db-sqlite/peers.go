@@ -1,9 +1,10 @@
 package db_sqlite
 
 import (
-	"github.com/vu-ngoc-son/XDP-p2p-router/database"
 	"math"
 	"sync"
+
+	"github.com/vu-ngoc-son/XDP-p2p-router/database"
 )
 
 func (s *SQLiteDB) UpdateOrCreatePeer(peer *database.Peers, wg *sync.WaitGroup) {

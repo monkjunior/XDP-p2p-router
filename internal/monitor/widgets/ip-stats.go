@@ -48,7 +48,7 @@ func NewIPStats(t time.Duration, db *dbSqlite.SQLiteDB, pktCap, whitelist *bpf.T
 
 func (s *IPStats) updateIPStats(fakeData bool) {
 	s.Rows = [][]string{
-		{"ipv4", "country code", "throughput (bps)", "threshold band"},
+		{"IPv4", "Country Code", "Throughput (bps)", "Bandwidth"},
 	}
 	if fakeData {
 		s.randomIPData(5, 10)
