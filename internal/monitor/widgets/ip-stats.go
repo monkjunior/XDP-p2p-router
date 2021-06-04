@@ -1,25 +1,35 @@
 package widgets
 
 import (
+	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	goRand "github.com/Pallinder/go-randomdata"
 	"github.com/gizak/termui/v3/widgets"
+	bpf "github.com/iovisor/gobpf/bcc"
 	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
+	"github.com/vu-ngoc-son/XDP-p2p-router/internal/common"
 )
 
 type IPStats struct {
 	*widgets.Table
 	DB             *dbSqlite.SQLiteDB
-	updateInterval time.Duration
+	PktCaptureMap  *bpf.Table
+	IPWhitelistMap *bpf.Table
+	UpdateInterval time.Duration
+	throughputMap  *sync.Map
 }
 
-func NewIPStats(updateInterval time.Duration, db *dbSqlite.SQLiteDB, fakeData bool) *IPStats {
+func NewIPStats(t time.Duration, db *dbSqlite.SQLiteDB, pktCap, whitelist *bpf.Table, fakeData bool) *IPStats {
 	self := &IPStats{
 		Table:          widgets.NewTable(),
 		DB:             db,
-		updateInterval: updateInterval,
+		PktCaptureMap:  pktCap,
+		IPWhitelistMap: whitelist,
+		UpdateInterval: t,
+		throughputMap:  &sync.Map{},
 	}
 
 	self.Title = "IP Stats"
@@ -28,7 +38,7 @@ func NewIPStats(updateInterval time.Duration, db *dbSqlite.SQLiteDB, fakeData bo
 
 	self.updateIPStats(fakeData)
 	go func() {
-		for range time.NewTicker(self.updateInterval).C {
+		for range time.NewTicker(self.UpdateInterval).C {
 			self.updateIPStats(fakeData)
 		}
 	}()
@@ -37,18 +47,72 @@ func NewIPStats(updateInterval time.Duration, db *dbSqlite.SQLiteDB, fakeData bo
 }
 
 func (s *IPStats) updateIPStats(fakeData bool) {
-	s.Rows = [][]string{
-		{"ipv4", "country code", "throughput", "threshold band"},
-	}
 	if fakeData {
+		s.Rows = [][]string{
+			{"ipv4", "country code", "throughput", "threshold band"},
+		}
 		s.Rows = append(s.Rows, randomIPData(5, 10)...)
+		return
 	}
-	//listIPs, err := s.DB.ListIPsFromLimitsTable(6)
-	//if err != nil {
-	//
-	//	return
-	//}
-	//s.Rows = append(s.Rows, listIPs...)
+
+	s.Rows = [][]string{
+		{"ipv4", "throughput"},
+	}
+
+	wg := sync.WaitGroup{}
+	for item := s.IPWhitelistMap.Iter(); item.Next(); {
+		if item.Err() != nil {
+			continue
+		}
+		wg.Add(1)
+		go func(group *sync.WaitGroup) {
+			defer group.Done()
+
+			peerIP, err := common.ConvertUint8ToUInt32(item.Key())
+			if err != nil {
+				return
+			}
+
+			_, exist := s.throughputMap.Load(peerIP)
+			if exist {
+				return
+			}
+
+			go func(k []byte, key uint32, m *sync.Map) {
+				prev := 0.0
+				clock := time.NewTicker(time.Second)
+				interval := 1.0
+				for {
+					select {
+					case <-clock.C:
+						counterData, err := s.PktCaptureMap.Get(k)
+						if err != nil {
+							interval += 1
+							continue
+						}
+						current, err := common.ConvertUint8ToUInt64(counterData[8:16])
+						if err != nil {
+							interval += 1
+							continue
+						}
+						m.Store(key, (float64(current)-prev)/interval)
+						prev = float64(current)
+						interval = 1.0
+					}
+				}
+			}(item.Key(), peerIP, s.throughputMap)
+		}(&wg)
+	}
+	wg.Wait()
+
+	s.throughputMap.Range(func(k, v interface{}) bool {
+		s.Rows = append(s.Rows, []string{
+			fmt.Sprintf("%d", k),
+			fmt.Sprintf("%.2f", v),
+		})
+		return true
+	})
+	return
 }
 
 func randomIPData(minRows, maxRows int) [][]string {
