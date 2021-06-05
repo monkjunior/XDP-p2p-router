@@ -1,21 +1,49 @@
 package logger
 
 import (
+	"errors"
+	"go.uber.org/zap/zapcore"
+	"os"
+
 	"go.uber.org/zap"
 )
 
 var (
-	Logger *zap.Logger
+	// TODO: User viper here
+	LogMode        = "dev"
+	LogPath        = "log/router.log"
+	LogConfig      zap.Config
+	LogAtomicLevel zap.AtomicLevel
+	LogLevel       zapcore.Level
+	Logger         *zap.Logger
 )
 
-func InitLogger() {
-	cfg := zap.NewProductionConfig()
-	// TODO: this should be configurable
-	cfg.OutputPaths = []string{
-		"log/router.log",
+func init() {
+	err := os.Remove(LogPath)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return
+		}
 	}
 
-	Logger, _ = cfg.Build()
+	LogConfig = zap.NewDevelopmentConfig()
+	if LogMode == "prod" || LogMode == "production" {
+		LogConfig = zap.NewProductionConfig()
+	}
+
+	// TODO: this should be configurable
+	LogLevel = zap.DebugLevel
+	LogAtomicLevel = zap.NewAtomicLevel()
+	LogAtomicLevel.SetLevel(LogLevel)
+
+	LogConfig.OutputPaths = []string{
+		LogPath,
+	}
+	LogConfig.Level = LogAtomicLevel
+}
+
+func InitLogger() {
+	Logger, _ = LogConfig.Build()
 }
 
 func GetLogger() *zap.Logger {

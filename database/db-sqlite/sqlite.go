@@ -50,10 +50,10 @@ func NewSQLite(filePath string) (*SQLiteDB, error) {
 	gormLogger := logger.New(
 		log.New(f, "\r\n", log.LstdFlags), // io writer
 		logger.Config{
-			SlowThreshold:             time.Second,  // Slow SQL threshold
-			LogLevel:                  logger.Error, // Log level
-			IgnoreRecordNotFoundError: true,         // Ignore ErrRecordNotFound error for logger
-			Colorful:                  false,        // Disable color
+			SlowThreshold:             time.Duration(500) * time.Millisecond, // Slow SQL threshold
+			LogLevel:                  logger.Warn,                           // Log level
+			IgnoreRecordNotFoundError: true,                                  // Ignore ErrRecordNotFound error for logger
+			Colorful:                  false,                                 // Disable color
 		},
 	)
 	db, err := gorm.Open(sqlite.Open(filePath), &gorm.Config{

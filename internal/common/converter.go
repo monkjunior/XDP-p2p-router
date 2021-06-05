@@ -2,8 +2,9 @@ package common
 
 import (
 	"fmt"
-	"github.com/iovisor/gobpf/bcc"
 	"net"
+
+	"github.com/iovisor/gobpf/bcc"
 )
 
 //ConvertUint8ToIP quickly convert raw data to string format of IP without doing any validation

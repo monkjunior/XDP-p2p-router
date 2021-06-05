@@ -1,10 +1,11 @@
 package limit_band
 
 import (
-	"fmt"
+	"go.uber.org/zap"
+
 	bpf "github.com/iovisor/gobpf/bcc"
 	bpfMaps "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-maps"
-	"os"
+	"github.com/vu-ngoc-son/XDP-p2p-router/internal/logger"
 )
 
 /*
@@ -26,17 +27,24 @@ func NewLimiter(module *bpf.Module) (*BandwidthLimiter, error) {
 }
 
 func Close(device string, module *bpf.Module) {
+	myLogger := logger.GetLogger()
 	if err := module.RemoveXDP(device); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to remove XDP from %s: %v\n", device, err)
+		myLogger.Error("failed to remove XDP", zap.String("device", device), zap.Error(err))
 	}
-	fmt.Println("close limit bandwidth module successfully")
+	myLogger.Info("close limit bandwidth module successfully")
 }
 
 func (p *BandwidthLimiter) ExportMap() (result []bpfMaps.LimitBandMapItem, err error) {
+	myLogger := logger.GetLogger()
 	countersTable := p.Table
 
 	result = make([]bpfMaps.LimitBandMapItem, 0)
 	for item := countersTable.Iter(); item.Next(); {
+		if item.Err() != nil {
+			myLogger.Error("failed while iterating through item in bpf map", zap.Error(item.Err()))
+			continue
+		}
+
 		keyRaw := item.Key()
 		valueRaw := item.Leaf()
 
@@ -47,5 +55,6 @@ func (p *BandwidthLimiter) ExportMap() (result []bpfMaps.LimitBandMapItem, err e
 		result = append(result, mapItem)
 
 	}
+	myLogger.Info("export whitelist map successfully", zap.Int("map_length", len(result)))
 	return result, nil
 }

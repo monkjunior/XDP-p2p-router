@@ -1,10 +1,14 @@
 package ip2location
 
 import (
+	"sync"
+
+	"go.uber.org/zap"
+
 	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
 	"github.com/vu-ngoc-son/XDP-p2p-router/database/geolite2"
+	"github.com/vu-ngoc-son/XDP-p2p-router/internal/logger"
 	packetCapture "github.com/vu-ngoc-son/XDP-p2p-router/internal/packet-capture"
-	"sync"
 )
 
 type Locator struct {
@@ -22,8 +26,10 @@ func NewLocator(p *packetCapture.PacketCapture, db *dbSqlite.SQLiteDB, g *geolit
 }
 
 func (l *Locator) UpdatePeersToDB() {
+	myLogger := logger.GetLogger()
 	pktCounterMap, err := l.PacketCapture.ExportMap()
 	if err != nil {
+		myLogger.Error("failed to export packet capture bpf map", zap.Error(err))
 		return
 	}
 
@@ -32,10 +38,12 @@ func (l *Locator) UpdatePeersToDB() {
 	for _, item := range pktCounterMap {
 		peer, err := l.GeoDB.IPInfo(item.Key)
 		if err != nil {
+			myLogger.Error("failed to get peer info", zap.Error(err))
 			return
 		}
 		go l.DB.UpdateOrCreatePeer(peer, &wg)
 	}
 	wg.Wait()
+	myLogger.Info("update peers to DB successfully", zap.Int("map_length", len(pktCounterMap)))
 	return
 }

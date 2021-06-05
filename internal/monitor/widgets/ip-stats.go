@@ -118,7 +118,7 @@ func (s *IPStats) crawlIPData() {
 			return true
 		}
 		s.Rows = append(s.Rows, []string{
-			fmt.Sprintf("%d", k),
+			fmt.Sprintf("%s", p.IpAddress),
 			p.CountryCode,
 			fmt.Sprintf("%.2f", v),
 			fmt.Sprintf("%.2f", p.Bandwidth),
