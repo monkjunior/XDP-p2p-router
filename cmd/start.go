@@ -62,7 +62,6 @@ func init() {
 	asnDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-ASN_%s/GeoLite2-ASN.mmdb", "20210504")
 	cityDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-City_%s/GeoLite2-City.mmdb", "20210427")
 	countryDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-Country_%s/GeoLite2-Country.mmdb", "20210427")
-	sqliteDBPath := "/home/ted/TheFirstProject/XDP-p2p-router/data/sqlite/p2p-router.db"
 
 	rootCmd.AddCommand(startCmd)
 
@@ -85,7 +84,7 @@ func init() {
 		myLogger.Fatal("failed to connect to geolite db", zap.Error(err))
 	}
 
-	sqliteDB, err = dbSqlite.NewSQLite(sqliteDBPath)
+	sqliteDB, err = dbSqlite.NewSQLite()
 	if err != nil {
 		myLogger.Fatal("failed to connect to sqlite db", zap.Error(err))
 		return
@@ -99,7 +98,7 @@ func init() {
 
 	err = sqliteDB.CreateHost(hostInfo)
 	if err != nil {
-		myLogger.Fatal("failed to add host info to database", zap.Error(err))
+		myLogger.Fatal("failed to add host info to database", zap.Any("host", hostInfo), zap.Error(err))
 		return
 	}
 }

@@ -17,7 +17,12 @@ import (
 )
 
 var (
+	runMode = "file"
 	logPath = "log/sqlite.log"
+
+	dbPath string
+
+	gormLogger *log.Logger
 )
 
 type SQLiteDB struct {
@@ -25,30 +30,46 @@ type SQLiteDB struct {
 	HostInfo *database.Hosts
 }
 
-func NewSQLite(filePath string) (*SQLiteDB, error) {
+func initSQLite() {
 	myLogger := internalLogger.GetLogger()
-	err := os.Remove(filePath)
+
+	switch runMode {
+	case "file":
+		dbPath = "data/sqlite/p2p-router.db"
+	case "memory":
+		dbPath = "file:p2p-router.db?mode=memory&cache=shared"
+	}
+
+	err := os.Remove(dbPath)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			myLogger.Error("error while delete old db", zap.Error(err))
-			return nil, err
+			return
 		}
 	}
 	err = os.Remove(logPath)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			myLogger.Error("error while delete log db", zap.Error(err))
-			return nil, err
+			return
 		}
 	}
 
-	// TODO: this should be configurable
 	f, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatalf("error opening file: %v\n", err)
+		myLogger.Fatal("error opening file", zap.Error(err))
+		return
 	}
+	gormLogger = log.New(f, "\r\n", log.LstdFlags) // io writer
+}
+
+func NewSQLite() (*SQLiteDB, error) {
+	initSQLite()
+
+	myLogger := internalLogger.GetLogger()
+
 	gormLogger := logger.New(
-		log.New(f, "\r\n", log.LstdFlags), // io writer
+		gormLogger,
 		logger.Config{
 			SlowThreshold:             time.Duration(500) * time.Millisecond, // Slow SQL threshold
 			LogLevel:                  logger.Warn,                           // Log level
@@ -56,7 +77,7 @@ func NewSQLite(filePath string) (*SQLiteDB, error) {
 			Colorful:                  false,                                 // Disable color
 		},
 	)
-	db, err := gorm.Open(sqlite.Open(filePath), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
 		Logger: gormLogger,
 	})
 	if err != nil {
@@ -67,6 +88,7 @@ func NewSQLite(filePath string) (*SQLiteDB, error) {
 		myLogger.Error("error while migrating SQLiteDB db %v\n", zap.Error(err))
 		return nil, err
 	}
+
 	return &SQLiteDB{
 		DB: db,
 	}, nil
