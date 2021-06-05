@@ -69,19 +69,22 @@ func init() {
 
 	hostPublicIP, err = common.GetMyPublicIP()
 	if err != nil {
-		myLogger.Fatal("failed to get host public ip: ", zap.Error(err))
+		myLogger.Fatal("failed to get host public ip", zap.Error(err))
 	}
 
 	hostPrivateIP, err = common.GetMyPrivateIP(device)
 	if err != nil {
-		myLogger.Fatal("failed to get host private ip: ", zap.Error(err))
+		myLogger.Fatal("failed to get host private ip", zap.Error(err))
 	}
 
-	geoDB = geolite2.NewGeoLite2(asnDBPath, cityDBPath, countryDBPath, hostPublicIP)
+	geoDB, err = geolite2.NewGeoLite2(asnDBPath, cityDBPath, countryDBPath, hostPublicIP)
+	if err != nil {
+		myLogger.Fatal("failed to connect to geolite db", zap.Error(err))
+	}
 
 	sqliteDB, err = dbSqlite.NewSQLite(sqliteDBPath)
 	if err != nil {
-		myLogger.Fatal("failed to connect to sqlite", zap.Error(err))
+		myLogger.Fatal("failed to connect to sqlite db", zap.Error(err))
 		return
 	}
 }
@@ -129,25 +132,7 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 			time.Sleep(15 * time.Second)
 			err := calculator.UpdatePeersLimit()
 			if err != nil {
-				myLogger.Fatal("calculator | failed to update peer limit ", zap.Error(err))
-			}
-		}
-	}()
-	go func() {
-		for {
-			time.Sleep(15 * time.Second)
-			err := calculator.UpdatePeersLimit()
-			if err != nil {
-				myLogger.Fatal("calculator | failed to update peer limit ", zap.Error(err))
-			}
-		}
-	}()
-	go func() {
-		for {
-			time.Sleep(5 * time.Second)
-			_, err := limiter.ExportMap()
-			if err != nil {
-				myLogger.Fatal("limiter | failed to export map ", zap.Error(err))
+				myLogger.Error("calculator | failed to update peer limit ", zap.Error(err))
 			}
 		}
 	}()

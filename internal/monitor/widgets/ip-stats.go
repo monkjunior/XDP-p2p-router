@@ -48,7 +48,7 @@ func NewIPStats(t time.Duration, db *dbSqlite.SQLiteDB, pktCap, whitelist *bpf.T
 
 func (s *IPStats) updateIPStats(fakeData bool) {
 	s.Rows = [][]string{
-		{"IPv4", "Country Code", "Throughput (bps)", "Bandwidth"},
+		{"IPv4", "Country Code", "Distance (kms)", "Throughput (bps)", "Bandwidth"},
 	}
 	if fakeData {
 		s.randomIPData(5, 10)
@@ -109,17 +109,12 @@ func (s *IPStats) crawlIPData() {
 	s.throughputMap.Range(func(k, v interface{}) bool {
 		p, err := s.DB.GetPeer(k.(uint32))
 		if err != nil {
-			s.Rows = append(s.Rows, []string{
-				fmt.Sprintf("%d", k),
-				"",
-				fmt.Sprintf("%.2f", v),
-				"",
-			})
 			return true
 		}
 		s.Rows = append(s.Rows, []string{
 			fmt.Sprintf("%s", p.IpAddress),
 			p.CountryCode,
+			fmt.Sprintf("%.2f", p.Distance),
 			fmt.Sprintf("%.2f", v),
 			fmt.Sprintf("%.2f", p.Bandwidth),
 		})
@@ -139,6 +134,7 @@ func (s *IPStats) randomIPData(minRows, maxRows int) {
 		s.Rows = append(s.Rows, []string{
 			goRand.IpV4Address(),
 			goRand.Country(goRand.TwoCharCountry),
+			strconv.Itoa(goRand.Number(10000, 20000)),
 			strconv.Itoa(goRand.Number(10000, 20000)),
 			strconv.Itoa(goRand.Number(10000, 20000)),
 		})

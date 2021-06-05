@@ -32,7 +32,7 @@ func init() {
 	}
 
 	// TODO: this should be configurable
-	LogLevel = zap.DebugLevel
+	LogLevel = zapcore.InfoLevel
 	LogAtomicLevel = zap.NewAtomicLevel()
 	LogAtomicLevel.SetLevel(LogLevel)
 

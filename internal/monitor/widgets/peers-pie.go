@@ -26,17 +26,22 @@ func NewPeersPie(updateInterval time.Duration, db *dbSqlite.SQLiteDB, fakeData b
 
 	self.Title = "Peers Population"
 	self.AngleOffset = -0.5 * math.Pi // Where should we start drawing pie
-	self.update(fakeData)
+	self.PaddingTop = 1
+	self.PaddingRight = 1
+	self.PaddingBottom = 1
+	self.PaddingLeft = 1
+
+	self.updatePieData(fakeData)
 	go func() {
 		for range time.NewTicker(self.updateInterval).C {
-			self.update(fakeData)
+			self.updatePieData(fakeData)
 		}
 	}()
 
 	return self
 }
 
-func (s *PeersPie) update(fakeData bool) {
+func (s *PeersPie) updatePieData(fakeData bool) {
 	if fakeData {
 		s.Data, s.Labels = randomPieData()
 		s.LabelFormatter = func(i int, v float64) string {

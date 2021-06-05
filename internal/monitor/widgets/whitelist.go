@@ -37,7 +37,7 @@ func NewWhiteList(updateInterval time.Duration, db *dbSqlite.SQLiteDB, fakeData 
 
 func (s *WhiteList) updateWhiteList(fakeData bool) {
 	s.Rows = [][]string{
-		{"peer", "state"},
+		{"Peer", "State"},
 	}
 	if fakeData {
 		s.Rows = append(s.Rows, randomWhiteListData(5, 10)...)

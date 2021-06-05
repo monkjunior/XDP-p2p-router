@@ -17,37 +17,53 @@ type GeoLite2 struct {
 	ASN, City, Country          *geoip2.Reader
 	HostPublicIP                string
 	HostLongitude, HostLatitude float64
+	HostASN                     uint
+	HostISP                     string
+	HostCountryCode             string
 }
 
-func NewGeoLite2(asnDBPath, cityDBPath, countryDBPath, hostPublicIP string) *GeoLite2 {
+func NewGeoLite2(asnDBPath, cityDBPath, countryDBPath, hostPublicIP string) (*GeoLite2, error) {
 	asnDB, err := geoip2.Open(asnDBPath)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	cityDB, err := geoip2.Open(cityDBPath)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	countryDB, err := geoip2.Open(countryDBPath)
 	if err != nil {
-		return nil
+		return nil, err
+	}
+
+	asnRecord, err := asnDB.ASN(net.ParseIP(hostPublicIP))
+	if err != nil {
+		return nil, err
 	}
 
 	cityRecord, err := cityDB.City(net.ParseIP(hostPublicIP))
 	if err != nil {
-		return nil
+		return nil, err
+	}
+
+	countryRecord, err := countryDB.Country(net.ParseIP(hostPublicIP))
+	if err != nil {
+		return nil, err
 	}
 
 	return &GeoLite2{
-		ASN:           asnDB,
-		City:          cityDB,
-		Country:       countryDB,
-		HostPublicIP:  hostPublicIP,
-		HostLatitude:  cityRecord.Location.Latitude,
-		HostLongitude: cityRecord.Location.Longitude,
-	}
+		ASN:             asnDB,
+		City:            cityDB,
+		Country:         countryDB,
+		HostPublicIP:    hostPublicIP,
+		HostLatitude:    cityRecord.Location.Latitude,
+		HostLongitude:   cityRecord.Location.Longitude,
+		HostASN:         asnRecord.AutonomousSystemNumber,
+		HostISP:         asnRecord.AutonomousSystemOrganization,
+		HostCountryCode: countryRecord.Country.IsoCode,
+	}, nil
 }
 
 func (g *GeoLite2) Close() {
@@ -78,7 +94,22 @@ func (g *GeoLite2) IPInfo(ipNumber uint32) (*database.Peers, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	IP := net.ParseIP(ipAddress)
+
+	if common.IsPrivateIP(IP) {
+		return &database.Peers{
+			IpAddress:   ipAddress,
+			IpNumber:    ipNumber,
+			Asn:         g.HostASN,
+			Isp:         g.HostISP,
+			CountryCode: g.HostCountryCode,
+			Longitude:   g.HostLongitude,
+			Latitude:    g.HostLatitude,
+			Distance:    0.0,
+		}, nil
+	}
+
 	asnRecord, err := g.ASN.ASN(IP)
 	if err != nil {
 		myLogger.Error("error while querying asn", zap.Error(common.ErrFailedToQueryGeoLite2))
@@ -149,29 +180,41 @@ func (g *GeoLite2) HostInfo() (*database.Hosts, error) {
 	}, nil
 }
 
-func (g *GeoLite2) DistanceToHost(latitude, longitude float64) (distance float64) {
+// DistanceToHost references: https://www.geodatasource.com/developers/go
+func (g *GeoLite2) DistanceToHost(latitude, longitude float64) float64 {
 	myLogger := logger.GetLogger()
-	deltaLong := longitude - g.HostLongitude
-	deltaLat := latitude - g.HostLatitude
 
-	a := math.Pow(math.Sin(deltaLat/2), 2) + math.Pow(math.Cos(deltaLong/2), 2)*math.Cos(latitude)*math.Cos(longitude)
-	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	const PI float64 = math.Pi
 
-	R := 6373.0
+	radlat1 := float64(PI * latitude / 180)
+	radlat2 := float64(PI * g.HostLatitude / 180)
 
-	distance = R * c
-	if distance == math.NaN() {
+	theta := float64(longitude - g.HostLongitude)
+	radtheta := float64(PI * theta / 180)
+
+	dist := math.Sin(radlat1)*math.Sin(radlat2) + math.Cos(radlat1)*math.Cos(radlat2)*math.Cos(radtheta)
+
+	if dist > 1 {
+		dist = 1
+	}
+
+	dist = math.Acos(dist)
+	dist = dist * 180 / PI
+	dist = dist * 60 * 1.1515
+	dist = dist * 1.609344 //Kms
+
+	if dist == math.NaN() {
 		myLogger.Debug("got result NaN when calculate host distance",
 			zap.Float64("longitude", longitude),
 			zap.Float64("latitude", latitude),
-			zap.Float64("delta_long", deltaLong),
-			zap.Float64("delta_lat", deltaLat),
-			zap.Float64("a", a),
-			zap.Float64("c", c),
-			zap.Float64("distance", distance),
+			zap.Float64("distance (Kms)", dist),
 		)
-		return 0
+		return 0.0
 	}
-
-	return distance
+	myLogger.Debug("distance calculated",
+		zap.Float64("longitude", longitude),
+		zap.Float64("latitude", latitude),
+		zap.Float64("distance (Kms)", dist),
+	)
+	return dist
 }
