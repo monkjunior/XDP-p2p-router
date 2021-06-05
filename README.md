@@ -28,8 +28,20 @@ XDP-p2p-router start --device <your-network-device>
 
 ## Libraries to build UI and charts
 
+- Public apis for getting public ip
+
+  - [ipify](https://api.ipify.org)
+  
+  - [ip-api](http://ip-api.com/json/)
+
 - [termui](https://github.com/gizak/termui)
 
   - [wiki](https://github.com/gizak/termui/wiki)
-
+ 
 - [go-echart](https://github.com/go-echarts/go-echarts)
+
+# References
+
+- Concurrency patterns in Go
+
+  - [Pipelines and cancellation](https://blog.golang.org/pipelines)

@@ -6,7 +6,6 @@ import (
 
 	"go.uber.org/zap"
 
-	bpf "github.com/iovisor/gobpf/bcc"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/vu-ngoc-son/XDP-p2p-router/database"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/common"
@@ -85,28 +84,21 @@ func (g *GeoLite2) Close() {
 	myLogger.Info("close geolite2 dbs successfully")
 }
 
-func (g *GeoLite2) IPInfo(ipNumber uint32) (*database.Peers, error) {
+func (g *GeoLite2) IPInfo(IP net.IP, IPNumber uint32, rxPkt, rxByte uint64) (*database.Peers, error) {
 	myLogger := logger.GetLogger()
-	IPRaw := make([]byte, 4)
-	bpf.GetHostByteOrder().PutUint32(IPRaw, ipNumber)
-
-	ipAddress, err := common.ConvertUint8ToIP(IPRaw)
-	if err != nil {
-		return nil, err
-	}
-
-	IP := net.ParseIP(ipAddress)
 
 	if common.IsPrivateIP(IP) {
 		return &database.Peers{
-			IpAddress:   ipAddress,
-			IpNumber:    ipNumber,
-			Asn:         g.HostASN,
-			Isp:         g.HostISP,
-			CountryCode: g.HostCountryCode,
-			Longitude:   g.HostLongitude,
-			Latitude:    g.HostLatitude,
-			Distance:    0.0,
+			IpAddress:    IP.String(),
+			IpNumber:     IPNumber,
+			Asn:          g.HostASN,
+			Isp:          g.HostISP,
+			CountryCode:  g.HostCountryCode,
+			Longitude:    g.HostLongitude,
+			Latitude:     g.HostLatitude,
+			Distance:     0.0,
+			TotalBytes:   rxByte,
+			TotalPackets: rxPkt,
 		}, nil
 	}
 
@@ -125,22 +117,23 @@ func (g *GeoLite2) IPInfo(ipNumber uint32) (*database.Peers, error) {
 		myLogger.Error("error while querying country", zap.Error(common.ErrFailedToQueryGeoLite2))
 		return nil, err
 	}
-
 	latitude := cityRecord.Location.Latitude
 	longitude := cityRecord.Location.Longitude
 
 	distance := g.DistanceToHost(latitude, longitude)
 
-	myLogger.Info("get peer info successfully", zap.String("peer_address", ipAddress), zap.Float64("distance", distance))
+	myLogger.Info("get peer info successfully", zap.String("peer_address", IP.String()), zap.Float64("distance", distance))
 	return &database.Peers{
-		IpAddress:   ipAddress,
-		IpNumber:    ipNumber,
-		Asn:         asnRecord.AutonomousSystemNumber,
-		Isp:         asnRecord.AutonomousSystemOrganization,
-		CountryCode: countryRecord.Country.IsoCode,
-		Longitude:   longitude,
-		Latitude:    latitude,
-		Distance:    distance,
+		IpAddress:    IP.String(),
+		IpNumber:     IPNumber,
+		Asn:          asnRecord.AutonomousSystemNumber,
+		Isp:          asnRecord.AutonomousSystemOrganization,
+		CountryCode:  countryRecord.Country.IsoCode,
+		Longitude:    longitude,
+		Latitude:     latitude,
+		Distance:     distance,
+		TotalBytes:   rxByte,
+		TotalPackets: rxPkt,
 	}, nil
 }
 
@@ -186,13 +179,13 @@ func (g *GeoLite2) DistanceToHost(latitude, longitude float64) float64 {
 
 	const PI float64 = math.Pi
 
-	radlat1 := float64(PI * latitude / 180)
-	radlat2 := float64(PI * g.HostLatitude / 180)
+	radianLat1 := PI * latitude / 180
+	radianLat2 := PI * g.HostLatitude / 180
 
-	theta := float64(longitude - g.HostLongitude)
-	radtheta := float64(PI * theta / 180)
+	theta := longitude - g.HostLongitude
+	radianTheta := PI * theta / 180
 
-	dist := math.Sin(radlat1)*math.Sin(radlat2) + math.Cos(radlat1)*math.Cos(radlat2)*math.Cos(radtheta)
+	dist := math.Sin(radianLat1)*math.Sin(radianLat2) + math.Cos(radianLat1)*math.Cos(radianLat2)*math.Cos(radianTheta)
 
 	if dist > 1 {
 		dist = 1

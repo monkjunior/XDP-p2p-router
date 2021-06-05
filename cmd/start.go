@@ -2,19 +2,20 @@ package cmd
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"net"
 	"time"
+
+	"go.uber.org/zap"
 
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
 	"github.com/spf13/cobra"
+	"github.com/vu-ngoc-son/XDP-p2p-router/database"
 	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
 	"github.com/vu-ngoc-son/XDP-p2p-router/database/geolite2"
 	bpfLoader "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-loader"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/common"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/compute"
-	"github.com/vu-ngoc-son/XDP-p2p-router/internal/ip2location"
 	limitBand "github.com/vu-ngoc-son/XDP-p2p-router/internal/limit-band"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/logger"
 	myWidget "github.com/vu-ngoc-son/XDP-p2p-router/internal/monitor/widgets"
@@ -31,6 +32,8 @@ var (
 
 	geoDB    *geolite2.GeoLite2
 	sqliteDB *dbSqlite.SQLiteDB
+
+	hostInfo *database.Hosts
 
 	pktCapture *packetCapture.PacketCapture
 	limiter    *limitBand.BandwidthLimiter
@@ -87,10 +90,8 @@ func init() {
 		myLogger.Fatal("failed to connect to sqlite db", zap.Error(err))
 		return
 	}
-}
 
-func execStartCmd(_ *cobra.Command, _ []string) {
-	hostInfo, err := geoDB.HostInfo()
+	hostInfo, err = geoDB.HostInfo()
 	if err != nil {
 		myLogger.Fatal("failed to query host info", zap.Error(err))
 		return
@@ -101,31 +102,27 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 		myLogger.Fatal("failed to add host info to database", zap.Error(err))
 		return
 	}
+}
 
+func execStartCmd(_ *cobra.Command, _ []string) {
+	var err error
 	m := bpfLoader.LoadModule(hostPrivateIP)
-	pktCapture, err = packetCapture.Start(device, m)
+
+	pktCapture, err = packetCapture.Start(device, m, sqliteDB, geoDB)
 	if err != nil {
 		myLogger.Fatal("failed to start packet capture module", zap.Error(err))
 	}
-	defer packetCapture.Close(device, m)
+	defer pktCapture.Close()
+
 	limiter, err = limitBand.NewLimiter(m)
 	if err != nil {
 		myLogger.Fatal("failed to init limiter module")
 	}
 	defer limitBand.Close(device, m)
 
-	locator := ip2location.NewLocator(pktCapture, sqliteDB, geoDB)
 	calculator := compute.NewCalculator(sqliteDB)
-	//watchDog := monitor.NewMonitor(pktCapture, limiter, sqliteDB)
 
 	myLogger.Info("starting router ... Ctrl+C to stop.")
-
-	go func() {
-		for {
-			time.Sleep(5 * time.Second)
-			locator.UpdatePeersToDB()
-		}
-	}()
 
 	go func() {
 		for {
@@ -141,10 +138,10 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 		myLogger.Fatal("failed to initialize termui: %v\n", zap.Error(err))
 	}
 	defer ui.Close()
-	setDefaultTermuiColors()
+
+	setDefaultTermUIColors()
 	fakeData = true
 	initWidgets(fakeData)
-
 	setupGrid()
 	termWidth, termHeight := ui.TerminalDimensions()
 	fmt.Println(termHeight, termWidth)
@@ -154,7 +151,7 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 	eventLoop()
 }
 
-func setDefaultTermuiColors() {
+func setDefaultTermUIColors() {
 	ui.Theme.Block.Title = ui.NewStyle(ui.ColorCyan)
 	ui.Theme.Block.Border = ui.NewStyle(ui.ColorGreen)
 }
@@ -205,5 +202,4 @@ func eventLoop() {
 			ui.Render(grid)
 		}
 	}
-
 }
