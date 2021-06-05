@@ -10,9 +10,15 @@ import (
 func (s *SQLiteDB) UpdateOrCreatePeer(peer *database.Peers, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	r := s.DB.Model(peer).Where("ip_number = ?", peer.IpNumber).Updates(peer)
+	var prev []database.Peers
+	r := s.DB.Model(peer).Where("ip_number = ?", peer.IpNumber).First(&prev)
 	if r.RowsAffected == 0 {
 		r = s.DB.Model(database.Peers{}).Create(peer)
+		return
+	}
+	if len(prev) == 1 {
+		r = s.DB.Model(database.Peers{}).Where("ip_number = ?", peer.IpNumber).Updates(peer)
+		return
 	}
 }
 

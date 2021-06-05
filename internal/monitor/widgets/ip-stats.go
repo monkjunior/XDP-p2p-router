@@ -2,6 +2,7 @@ package widgets
 
 import (
 	"fmt"
+	bpfMaps "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-maps"
 	"strconv"
 	"sync"
 	"time"
@@ -20,6 +21,8 @@ type IPStats struct {
 	IPWhitelistMap *bpf.Table
 	UpdateInterval time.Duration
 	throughputMap  *sync.Map
+
+	IPsPool map[uint32]chan bpfMaps.PktCounterValue
 }
 
 func NewIPStats(t time.Duration, db *dbSqlite.SQLiteDB, pktCap, whitelist *bpf.Table, fakeData bool) *IPStats {
@@ -56,7 +59,6 @@ func (s *IPStats) updateIPStats(fakeData bool) {
 	}
 
 	s.crawlIPData()
-
 }
 
 func (s *IPStats) crawlIPData() {

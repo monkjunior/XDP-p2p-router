@@ -1,7 +1,12 @@
 package packet_capture
 
 import (
+	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
+	"github.com/vu-ngoc-son/XDP-p2p-router/database/geolite2"
 	"go.uber.org/zap"
+	"net"
+	"sync"
+	"time"
 
 	bpf "github.com/iovisor/gobpf/bcc"
 	bpfMaps "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-maps"
@@ -17,11 +22,20 @@ import (
 */
 import "C"
 
+const (
+	UpdateIntervalSeconds = 5
+)
+
 type PacketCapture struct {
-	Table *bpf.Table
+	Device  string
+	Module  *bpf.Module
+	Table   *bpf.Table
+	IPsPool map[uint32]bpfMaps.PktCounterValue
+	DB      *dbSqlite.SQLiteDB
+	GeoDB   *geolite2.GeoLite2
 }
 
-func Start(device string, module *bpf.Module) (*PacketCapture, error) {
+func Start(device string, module *bpf.Module, db *dbSqlite.SQLiteDB, g *geolite2.GeoLite2) (*PacketCapture, error) {
 	myLogger := logger.GetLogger()
 	fn, err := module.Load("packet_counter", C.BPF_PROG_TYPE_XDP, 1, 65536)
 	if err != nil {
@@ -35,24 +49,104 @@ func Start(device string, module *bpf.Module) (*PacketCapture, error) {
 		return nil, err
 	}
 
-	return &PacketCapture{
-		Table: bpf.NewTable(module.TableId(bpfMaps.PacketCaptureMap), module),
-	}, nil
-}
-
-func Close(device string, module *bpf.Module) {
-	myLogger := logger.GetLogger()
-	if err := module.RemoveXDP(device); err != nil {
-		myLogger.Error("failed to remove XDP", zap.String("device", device), zap.Error(err))
+	self := &PacketCapture{
+		Device:  device,
+		Module:  module,
+		Table:   bpf.NewTable(module.TableId(bpfMaps.PacketCaptureMap), module),
+		IPsPool: make(map[uint32]bpfMaps.PktCounterValue),
+		DB:      db,
+		GeoDB:   g,
 	}
-	myLogger.Info("close packet capture module successfully")
+
+	self.updateIPsPool()
+
+	go func() {
+		for range time.NewTicker(UpdateIntervalSeconds * time.Second).C {
+			self.updateIPsPool()
+		}
+	}()
+
+	return self, nil
 }
 
-func (p *PacketCapture) ExportMap() (result []bpfMaps.PktCounterMapItem, err error) {
+func (p *PacketCapture) updateIPsPool() {
 	myLogger := logger.GetLogger()
 	countersTable := p.Table
 
-	result = make([]bpfMaps.PktCounterMapItem, 0)
+	for item := countersTable.Iter(); item.Next(); {
+		if item.Err() != nil {
+			myLogger.Error("failed while iterating through item in bpf map", zap.Error(item.Err()))
+			continue
+		}
+
+		keyRaw := item.Key()
+
+		key, err := common.ConvertUint8ToUInt32(keyRaw)
+		if err != nil {
+			myLogger.Error("failed while converting key to uint32", zap.Error(err))
+			continue
+		}
+
+		value, err := p.getValueFromKey(keyRaw)
+		if err != nil {
+			myLogger.Error("failed to get key from bpf map",
+				zap.Binary("key", keyRaw),
+				zap.Error(err),
+			)
+			continue
+		}
+		p.IPsPool[key] = *value
+	}
+
+	err := p.updatePeersDB()
+	if err != nil {
+		myLogger.Error("failed update peers db",
+			zap.Error(err),
+		)
+	}
+	return
+}
+
+func (p *PacketCapture) getValueFromKey(keyRaw []uint8) (*bpfMaps.PktCounterValue, error) {
+	myLogger := logger.GetLogger()
+	countersTable := p.Table
+	valueRaw, err := countersTable.Get(keyRaw)
+	if err != nil {
+		myLogger.Error("failed to get key from bpf map",
+			zap.Binary("key", keyRaw),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+
+	rxPackets, err := common.ConvertUint8ToUInt64(valueRaw[0:8])
+	if err != nil {
+		myLogger.Error("failed while converting rxPackets to uint64",
+			zap.Binary("key", keyRaw),
+			zap.Binary("rx_packets", valueRaw[0:8]),
+			zap.Error(err))
+		return nil, err
+	}
+
+	rxBytes, err := common.ConvertUint8ToUInt64(valueRaw[8:16])
+	if err != nil {
+		myLogger.Error("failed while converting rxBytes to uint64",
+			zap.Binary("key", keyRaw),
+			zap.Binary("rx_bytes", valueRaw[8:16]),
+			zap.Error(err))
+		return nil, err
+	}
+
+	return &bpfMaps.PktCounterValue{
+		RxPackets: rxPackets,
+		RxBytes:   rxBytes,
+	}, nil
+}
+
+func (p *PacketCapture) updatePeersDB() (err error) {
+	myLogger := logger.GetLogger()
+	countersTable := p.Table
+	var wg sync.WaitGroup
 	for item := countersTable.Iter(); item.Next(); {
 		if item.Err() != nil {
 			myLogger.Error("failed while iterating through item in bpf map", zap.Error(item.Err()))
@@ -65,31 +159,56 @@ func (p *PacketCapture) ExportMap() (result []bpfMaps.PktCounterMapItem, err err
 		key, err := common.ConvertUint8ToUInt32(keyRaw)
 		if err != nil {
 			myLogger.Error("failed while converting key to uint32", zap.Error(err))
-			return nil, err
+			continue
 		}
 
 		rxPackets, err := common.ConvertUint8ToUInt64(valueRaw[0:8])
 		if err != nil {
 			myLogger.Error("failed while converting rxPackets to uint64", zap.Error(err))
-			return nil, err
+			continue
 		}
 
 		rxBytes, err := common.ConvertUint8ToUInt64(valueRaw[8:16])
 		if err != nil {
 			myLogger.Error("failed while converting rxBytes to uint64", zap.Error(err))
-			return nil, err
+			continue
 		}
 
-		mapItem := bpfMaps.PktCounterMapItem{
-			Key: key,
-			Value: bpfMaps.PktCounterValue{
-				RxPackets: rxPackets,
-				RxBytes:   rxBytes,
-			},
+		IPAddress, err := common.ConvertUint8ToIP(keyRaw)
+		if err != nil {
+			myLogger.Error("failed while parsing key to IPv4", zap.Error(err))
+			continue
 		}
-		result = append(result, mapItem)
 
+		IP := net.ParseIP(IPAddress)
+		if IP.IsUnspecified() {
+			err := countersTable.Delete(keyRaw)
+			if err != nil {
+				myLogger.Error("failed while delete unspecified IPv4 key", zap.Error(err))
+				continue
+			}
+			myLogger.Info("deleted unspecified IPv4 key", zap.Binary("key", keyRaw))
+			continue
+		}
+
+		IPNumber := key
+		peer, err := p.GeoDB.IPInfo(IP, IPNumber, rxPackets, rxBytes)
+		if err != nil {
+			myLogger.Error("failed to get peer info", zap.Error(err))
+			return err
+		}
+		wg.Add(1)
+		go p.DB.UpdateOrCreatePeer(peer, &wg)
 	}
-	myLogger.Info("export packet capture map successfully", zap.Int("map_length", len(result)))
-	return result, nil
+	wg.Wait()
+	myLogger.Info("export packet capture map successfully")
+	return nil
+}
+
+func (p *PacketCapture) Close() {
+	myLogger := logger.GetLogger()
+	if err := p.Module.RemoveXDP(p.Device); err != nil {
+		myLogger.Error("failed to remove XDP", zap.String("device", p.Device), zap.Error(err))
+	}
+	myLogger.Info("close packet capture module successfully")
 }
