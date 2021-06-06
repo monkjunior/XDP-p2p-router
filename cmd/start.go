@@ -174,7 +174,7 @@ func setupGrid() {
 func initWidgets(fakeData bool) {
 	ipStats = myWidget.NewIPStats(updateInterval, sqliteDB, pktCapture.Table, limiter.Table, false)
 	peerStatsPie = myWidget.NewPeersPie(updateInterval, sqliteDB, false)
-	peerStatsTable = myWidget.NewPeersTable(updateInterval, sqliteDB, fakeData)
+	peerStatsTable = myWidget.NewPeersTable(peerStatsPie)
 	whiteList = myWidget.NewWhiteList(updateInterval, sqliteDB, fakeData)
 	basicInfo = widgets.NewParagraph()
 	basicInfo.Text = fmt.Sprintf(

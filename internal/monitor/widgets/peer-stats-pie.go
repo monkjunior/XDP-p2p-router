@@ -10,6 +10,10 @@ import (
 	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
 )
 
+const (
+	MaxPieParts = 7
+)
+
 type PeersPie struct {
 	*widgets.PieChart
 	Labels         []string
@@ -24,7 +28,8 @@ func NewPeersPie(updateInterval time.Duration, db *dbSqlite.SQLiteDB, fakeData b
 		updateInterval: updateInterval,
 	}
 
-	self.Title = "Peers Population"
+	self.Title = "Peer Stats"
+	self.BorderRight = false
 	self.AngleOffset = -0.5 * math.Pi // Where should we start drawing pie
 	self.PaddingTop = 1
 	self.PaddingRight = 1
@@ -54,21 +59,30 @@ func (s *PeersPie) updatePieData(fakeData bool) {
 
 func (s *PeersPie) crawlPeersPieData() {
 	countryStats, err := s.DB.ListCountryCodes()
-	if err != nil {
+	if err != nil || len(countryStats) <= 0 {
 		return
 	}
 
-	var totalBytes uint64
+	var pieParts = MaxPieParts
+	if MaxPieParts > len(countryStats) {
+		pieParts = len(countryStats)
+	}
 
-	labels := make([]string, len(countryStats))
-	data := make([]float64, len(countryStats))
+	var totalBytes uint64
+	var totalData uint64
+
+	labels := make([]string, pieParts)
+	data := make([]float64, pieParts)
 	for i := 0; i < len(countryStats); i++ {
-		labels[i] = countryStats[i].CountryCode
 		totalBytes += countryStats[i].Bytes
 	}
-	for j := 0; j < len(countryStats); j++ {
-		data[j] = float64(countryStats[j].Bytes)/float64(totalBytes)
+	for j := 0; j < pieParts-1; j++ {
+		totalData += countryStats[j].Bytes
+		labels[j] = countryStats[j].CountryCode
+		data[j] = float64(countryStats[j].Bytes) / float64(totalBytes)
 	}
+	labels[pieParts-1] = "..."
+	data[pieParts-1] = float64(totalBytes-totalData) / float64(totalBytes)
 	s.Labels = labels
 	s.Data = data
 }
