@@ -44,4 +44,6 @@ XDP-p2p-router start --device <your-network-device>
 
 - Concurrency patterns in Go
 
+  - [Concurrency patterns in Go](https://youtu.be/YEKjSzIwAdA)
+
   - [Pipelines and cancellation](https://blog.golang.org/pipelines)

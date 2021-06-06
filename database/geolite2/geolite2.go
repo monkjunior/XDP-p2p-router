@@ -112,15 +112,19 @@ func (g *GeoLite2) IPInfo(IP net.IP, IPNumber uint32, rxPkt, rxByte uint64) (*da
 		myLogger.Error("error while querying city", zap.Error(common.ErrFailedToQueryGeoLite2))
 		return nil, err
 	}
+	latitude := cityRecord.Location.Latitude
+	longitude := cityRecord.Location.Longitude
+	distance := g.DistanceToHost(latitude, longitude)
+
 	countryRecord, err := g.Country.Country(IP)
 	if err != nil {
 		myLogger.Error("error while querying country", zap.Error(common.ErrFailedToQueryGeoLite2))
 		return nil, err
 	}
-	latitude := cityRecord.Location.Latitude
-	longitude := cityRecord.Location.Longitude
-
-	distance := g.DistanceToHost(latitude, longitude)
+	countryCode := countryRecord.Country.IsoCode
+	if countryCode == "" {
+		countryCode = "OTHER"
+	}
 
 	myLogger.Info("get peer info successfully", zap.String("peer_address", IP.String()), zap.Float64("distance", distance))
 	return &database.Peers{
@@ -128,7 +132,7 @@ func (g *GeoLite2) IPInfo(IP net.IP, IPNumber uint32, rxPkt, rxByte uint64) (*da
 		IpNumber:     IPNumber,
 		Asn:          asnRecord.AutonomousSystemNumber,
 		Isp:          asnRecord.AutonomousSystemOrganization,
-		CountryCode:  countryRecord.Country.IsoCode,
+		CountryCode:  countryCode,
 		Longitude:    longitude,
 		Latitude:     latitude,
 		Distance:     distance,

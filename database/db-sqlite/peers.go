@@ -7,6 +7,12 @@ import (
 	"github.com/vu-ngoc-son/XDP-p2p-router/database"
 )
 
+type CountryStats struct {
+	CountryCode string
+	Bytes       uint64
+	Packets     uint64
+}
+
 func (s *SQLiteDB) UpdateOrCreatePeer(peer *database.Peers, wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -70,4 +76,11 @@ func (s *SQLiteDB) CompareToHost(peerInfo database.Peers) (sameASN, sameISP, sam
 	sameISP = peerInfo.Isp == host.Isp
 	sameCountry = peerInfo.CountryCode == host.CountryCode
 	return sameASN, sameISP, sameCountry
+}
+
+func (s *SQLiteDB) ListCountryCodes() ([]CountryStats, error) {
+	var result []CountryStats
+	query := s.DB.Model(database.Peers{}).Select("country_code, sum(total_bytes) as bytes, sum(total_packets) as packets").Group("country_code").Order("bytes desc").Find(&result)
+
+	return result, query.Error
 }
