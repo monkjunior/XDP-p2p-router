@@ -33,12 +33,13 @@ func NewPeersTable(pie *PeersPie) *PeersTable {
 
 func (s *PeersTable) updatePeersStats() {
 	s.Rows = [][]string{
-		{"Country", "Data percent (%)"},
+		{"Country", "Data (MB)", "Percent (%)"},
 	}
 
 	for i := 0; i < len(s.Labels); i++ {
 		s.Rows = append(s.Rows, []string{
 			fmt.Sprintf("%s", s.PeersPie.Labels[i]),
+			fmt.Sprintf("%.3f", s.PeersPie.Data[i]*float64(s.TotalBytes)/(1024*1024)),
 			fmt.Sprintf("%.2f", s.PeersPie.Data[i]*100),
 		})
 	}

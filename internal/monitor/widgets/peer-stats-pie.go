@@ -19,6 +19,7 @@ type PeersPie struct {
 	Labels         []string
 	DB             *dbSqlite.SQLiteDB
 	updateInterval time.Duration
+	TotalBytes     uint64
 }
 
 func NewPeersPie(updateInterval time.Duration, db *dbSqlite.SQLiteDB, fakeData bool) *PeersPie {
@@ -48,7 +49,7 @@ func NewPeersPie(updateInterval time.Duration, db *dbSqlite.SQLiteDB, fakeData b
 
 func (s *PeersPie) updatePieData(fakeData bool) {
 	s.LabelFormatter = func(i int, v float64) string {
-		return fmt.Sprintf("%s-%0.2f", s.Labels[i], v)
+		return fmt.Sprintf("%s", s.Labels[i])
 	}
 	if fakeData {
 		s.randomPieData()
@@ -68,21 +69,22 @@ func (s *PeersPie) crawlPeersPieData() {
 		pieParts = len(countryStats)
 	}
 
-	var totalBytes uint64
-	var totalData uint64
+	var totalData uint64 // Data displayed on pie chart
 
 	labels := make([]string, pieParts)
 	data := make([]float64, pieParts)
+	s.TotalBytes = 0
 	for i := 0; i < len(countryStats); i++ {
-		totalBytes += countryStats[i].Bytes
+		s.TotalBytes += countryStats[i].Bytes
 	}
 	for j := 0; j < pieParts-1; j++ {
 		totalData += countryStats[j].Bytes
 		labels[j] = countryStats[j].CountryCode
-		data[j] = float64(countryStats[j].Bytes) / float64(totalBytes)
+		data[j] = float64(countryStats[j].Bytes) / float64(s.TotalBytes)
 	}
 	labels[pieParts-1] = "..."
-	data[pieParts-1] = float64(totalBytes-totalData) / float64(totalBytes)
+	data[pieParts-1] = float64(s.TotalBytes-totalData) / float64(s.TotalBytes)
+
 	s.Labels = labels
 	s.Data = data
 }
