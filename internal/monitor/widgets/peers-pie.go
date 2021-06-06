@@ -42,27 +42,43 @@ func NewPeersPie(updateInterval time.Duration, db *dbSqlite.SQLiteDB, fakeData b
 }
 
 func (s *PeersPie) updatePieData(fakeData bool) {
-	if fakeData {
-		s.Data, s.Labels = randomPieData()
-		s.LabelFormatter = func(i int, v float64) string {
-			return fmt.Sprintf("%s", s.Labels[i])
-		}
+	s.LabelFormatter = func(i int, v float64) string {
+		return fmt.Sprintf("%s-%0.2f", s.Labels[i], v)
 	}
-	//listIPs, err := s.DB.ListIPsFromLimitsTable(6)
-	//if err != nil {
-	//
-	//	return
-	//}
-	//s.Rows = append(s.Rows, listIPs...)
+	if fakeData {
+		s.randomPieData()
+		return
+	}
+	s.crawlPeersPieData()
 }
 
-func randomPieData() ([]float64, []string) {
-	labels := []string{"VN", "HK", "US", "UK"}
-	data := []float64{
+func (s *PeersPie) crawlPeersPieData() {
+	countryStats, err := s.DB.ListCountryCodes()
+	if err != nil {
+		return
+	}
+
+	var totalBytes uint64
+
+	labels := make([]string, len(countryStats))
+	data := make([]float64, len(countryStats))
+	for i := 0; i < len(countryStats); i++ {
+		labels[i] = countryStats[i].CountryCode
+		totalBytes += countryStats[i].Bytes
+	}
+	for j := 0; j < len(countryStats); j++ {
+		data[j] = float64(countryStats[j].Bytes)/float64(totalBytes)
+	}
+	s.Labels = labels
+	s.Data = data
+}
+
+func (s *PeersPie) randomPieData() {
+	s.Labels = []string{"VN", "HK", "US", "UK"}
+	s.Data = []float64{
 		goRand.Decimal(50, 60),
 		goRand.Decimal(15, 20),
 		goRand.Decimal(5, 20),
 		goRand.Decimal(5, 20),
 	}
-	return data, labels
 }
