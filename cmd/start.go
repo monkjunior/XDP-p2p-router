@@ -139,7 +139,7 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 	defer ui.Close()
 
 	setDefaultTermUIColors()
-	fakeData = true
+	fakeData = false
 	initWidgets(fakeData)
 	setupGrid()
 	termWidth, termHeight := ui.TerminalDimensions()
@@ -172,10 +172,10 @@ func setupGrid() {
 }
 
 func initWidgets(fakeData bool) {
-	ipStats = myWidget.NewIPStats(updateInterval, sqliteDB, pktCapture.Table, limiter.Table, false)
-	peerStatsPie = myWidget.NewPeersPie(updateInterval, sqliteDB, false)
+	ipStats = myWidget.NewIPStats(updateInterval, sqliteDB, pktCapture.Table, limiter.Table, fakeData)
+	peerStatsPie = myWidget.NewPeersPie(updateInterval, sqliteDB, fakeData)
 	peerStatsTable = myWidget.NewPeersTable(peerStatsPie)
-	whiteList = myWidget.NewWhiteList(updateInterval, sqliteDB, fakeData)
+	whiteList = myWidget.NewWhiteList(updateInterval, sqliteDB, pktCapture.Table, limiter.Table, fakeData)
 	basicInfo = widgets.NewParagraph()
 	basicInfo.Text = fmt.Sprintf(
 		"Public IP\t: %s\nPrivate IP\t: %s\n",

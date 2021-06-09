@@ -35,7 +35,7 @@ int packet_counter(struct xdp_md *ctx){
 	struct packet_counter pkt_cap_dft_value = {};
 	struct packet_counter *pkt_cap_value;
 	
-	uint32_t ip_whitelist_dft_key;
+	uint32_t ip_whitelist_key;
 	int ip_whitelist_dft_value = XDP_PASS;
 	int *ip_whitelist_value;
 
@@ -61,8 +61,8 @@ int packet_counter(struct xdp_md *ctx){
 	//		__sync_fetch_and_add(&pkt_cap_value->rx_bytes, bytes);
 	//	}
 	//	
-	//	ip_whitelist_dft_key = ip->saddr;
-	//	ip_whitelist_value = ip_whitelist.lookup_or_try_init(&ip_whitelist_dft_key, &ip_whitelist_dft_value);
+	//	ip_whitelist_key = ip->saddr;
+	//	ip_whitelist_value = ip_whitelist.lookup_or_try_init(&ip_whitelist_key, &ip_whitelist_dft_value);
 	//	if (ip_whitelist_value) {
 	//		return *ip_whitelist_value;
 	//	}
@@ -75,8 +75,8 @@ int packet_counter(struct xdp_md *ctx){
 		__sync_fetch_and_add(&pkt_cap_value->rx_bytes, bytes);
 	}
 	
-	ip_whitelist_dft_key = ip->saddr;
-	ip_whitelist_value = ip_whitelist.lookup_or_try_init(&ip_whitelist_dft_key, &ip_whitelist_dft_value);
+	ip_whitelist_key = ip->saddr;
+	ip_whitelist_value = ip_whitelist.lookup_or_try_init(&ip_whitelist_key, &ip_whitelist_dft_value);
 	if (ip_whitelist_value) {
 		return *ip_whitelist_value;
 	}
