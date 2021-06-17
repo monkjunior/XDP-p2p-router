@@ -39,8 +39,6 @@ var (
 	pktCapture *packetCapture.PacketCapture
 	limiter    *limitBand.BandwidthLimiter
 
-	// TODO: this should be configurable
-	fakeData       bool
 	updateInterval = time.Second
 
 	grid           *ui.Grid
@@ -102,11 +100,10 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 	}
 	defer ui.Close()
 
-	fakeData = false
 	termWidth, termHeight := ui.TerminalDimensions()
 
 	setDefaultTermUIColors()
-	initWidgets(fakeData)
+	initWidgets()
 	setupGrid()
 	grid.SetRect(0, 0, termWidth, termHeight)
 	ui.Render(grid)
@@ -176,7 +173,9 @@ func setupGrid() {
 	)
 }
 
-func initWidgets(fakeData bool) {
+func initWidgets() {
+	fakeData := viper.GetBool("fake_data")
+
 	ipStats = myWidget.NewIPStats(updateInterval, sqliteDB, pktCapture.Table, limiter.Table, fakeData)
 	peerStatsPie = myWidget.NewPeersPie(updateInterval, sqliteDB, fakeData)
 	peerStatsTable = myWidget.NewPeersTable(peerStatsPie)
