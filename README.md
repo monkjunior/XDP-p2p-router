@@ -2,9 +2,20 @@
 
 ## Install dependencies
 
+- Install golang v1.16.4
+
+- Install gcc
+```bash
+# Ubuntu
+$ sudo apt-get instlal gcc
+```  
+
 - [Install bcc](https://github.com/iovisor/bcc/blob/master/INSTALL.md#arch---binary)
 ```bash
-#Install bcc on arch linux
+# Install bcc on ubuntu
+$ sudo apt-get install bpfcc-tools linux-headers-$(uname -r)
+
+# Install bcc on arch linux
 $ pacman -S bcc bcc-tools python-bcc
 ```
 

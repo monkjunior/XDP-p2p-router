@@ -15,6 +15,10 @@ import (
 )
 
 /*
+#ifdef asm_inline
+#undef asm_inline
+#define asm_inline asm
+#endif
 #cgo CFLAGS: -I/usr/include/bcc/compat
 #cgo LDFLAGS: -lbcc
 #include <bcc/bcc_common.h>
