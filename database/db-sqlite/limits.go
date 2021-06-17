@@ -2,6 +2,7 @@ package db_sqlite
 
 import (
 	"fmt"
+
 	"github.com/vu-ngoc-son/XDP-p2p-router/database"
 )
 
@@ -16,7 +17,7 @@ func (s *SQLiteDB) UpdatePeerLimit(l *database.Limits) error {
 
 func (s *SQLiteDB) ListIPsFromLimitsTable(rows int) ([][]string, error) {
 	var listPeers []database.Limits
-	result := s.DB.Model(database.Limits{}).Order("bandwidth DESC").Limit(rows).Find(&listPeers)
+	result := s.DB.Model(database.Limits{}).Order("ip DESC").Limit(rows).Find(&listPeers)
 	if result.Error != nil {
 		return nil, result.Error
 	}
