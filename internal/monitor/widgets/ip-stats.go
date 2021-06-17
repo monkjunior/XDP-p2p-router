@@ -25,6 +25,18 @@ type IPStats struct {
 	IPsPool map[uint32]chan bpfMaps.PktCounterValue
 }
 
+type crawler struct {
+	IPRaw         []byte
+	IPUint32      uint32
+	throughputMap *sync.Map
+}
+
+// TODO: Implement Run the use it in method crawlIPData
+// Run start a go routine to retrieve bpf map data of an IP
+func (c *crawler) Run(interval int) {
+
+}
+
 func NewIPStats(t time.Duration, db *dbSqlite.SQLiteDB, pktCap, whitelist *bpf.Table, fakeData bool) *IPStats {
 	self := &IPStats{
 		Table:          widgets.NewTable(),

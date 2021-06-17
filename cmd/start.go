@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/spf13/viper"
 	"net"
 	"time"
 
@@ -58,53 +59,16 @@ var startCmd = &cobra.Command{
 }
 
 func init() {
-	// TODO: these vars should be configurable
-	asnDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-ASN_%s/GeoLite2-ASN.mmdb", "20210504")
-	cityDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-City_%s/GeoLite2-City.mmdb", "20210427")
-	countryDBPath := fmt.Sprintf("/home/ted/TheFirstProject/XDP-p2p-router/data/geolite2/GeoLite2-Country_%s/GeoLite2-Country.mmdb", "20210427")
-
 	rootCmd.AddCommand(startCmd)
 
 	startCmd.Flags().StringVar(&device, "device", "wlp8s0", "network interface that you want to attach this program to it")
-
-	var err error
-
-	hostPublicIP, err = common.GetMyPublicIP()
-	if err != nil {
-		myLogger.Fatal("failed to get host public ip", zap.Error(err))
-	}
-
-	hostPrivateIP, err = common.GetMyPrivateIP(device)
-	if err != nil {
-		myLogger.Fatal("failed to get host private ip", zap.Error(err))
-	}
-
-	geoDB, err = geolite2.NewGeoLite2(asnDBPath, cityDBPath, countryDBPath, hostPublicIP)
-	if err != nil {
-		myLogger.Fatal("failed to connect to geolite db", zap.Error(err))
-	}
-
-	sqliteDB, err = dbSqlite.NewSQLite()
-	if err != nil {
-		myLogger.Fatal("failed to connect to sqlite db", zap.Error(err))
-		return
-	}
-
-	hostInfo, err = geoDB.HostInfo()
-	if err != nil {
-		myLogger.Fatal("failed to query host info", zap.Error(err))
-		return
-	}
-
-	err = sqliteDB.CreateHost(hostInfo)
-	if err != nil {
-		myLogger.Fatal("failed to add host info to database", zap.Any("host", hostInfo), zap.Error(err))
-		return
-	}
 }
 
 func execStartCmd(_ *cobra.Command, _ []string) {
 	var err error
+
+	initDBConn()
+
 	m := bpfLoader.LoadModule(hostPrivateIP)
 
 	pktCapture, err = packetCapture.Start(device, m, sqliteDB, geoDB)
@@ -134,20 +98,61 @@ func execStartCmd(_ *cobra.Command, _ []string) {
 	}()
 
 	if err := ui.Init(); err != nil {
-		myLogger.Fatal("failed to initialize termui: %v\n", zap.Error(err))
+		myLogger.Fatal("failed to initialize terminal ui: %v\n", zap.Error(err))
 	}
 	defer ui.Close()
 
-	setDefaultTermUIColors()
 	fakeData = false
+	termWidth, termHeight := ui.TerminalDimensions()
+
+	setDefaultTermUIColors()
 	initWidgets(fakeData)
 	setupGrid()
-	termWidth, termHeight := ui.TerminalDimensions()
-	fmt.Println(termHeight, termWidth)
 	grid.SetRect(0, 0, termWidth, termHeight)
 	ui.Render(grid)
 
 	eventLoop()
+}
+
+func initDBConn() {
+	var err error
+
+	asnDBPath := viper.GetString("geolite.asn")
+	cityDBPath := viper.GetString("geolite.city")
+	countryDBPath := viper.GetString("geolite.country")
+
+	hostPublicIP, err = common.GetMyPublicIP()
+	if err != nil {
+		myLogger.Fatal("failed to get host public ip", zap.Error(err))
+	}
+
+	hostPrivateIP, err = common.GetMyPrivateIP(device)
+	if err != nil {
+		myLogger.Fatal("failed to get host private ip", zap.Error(err))
+	}
+
+	geoDB, err = geolite2.NewGeoLite2(asnDBPath, cityDBPath, countryDBPath, hostPublicIP)
+	if err != nil {
+		myLogger.Fatal("failed to connect to geolite db", zap.Error(err))
+	}
+
+	hostInfo, err = geoDB.HostInfo()
+	if err != nil {
+		myLogger.Fatal("failed to query host info", zap.Error(err))
+		return
+	}
+
+	sqliteDB, err = dbSqlite.NewSQLite()
+	if err != nil {
+		myLogger.Fatal("failed to connect to sqlite db", zap.Error(err))
+		return
+	}
+
+	err = sqliteDB.CreateHost(hostInfo)
+	if err != nil {
+		myLogger.Fatal("failed to add host info to database", zap.Any("host", hostInfo), zap.Error(err))
+		return
+	}
 }
 
 func setDefaultTermUIColors() {

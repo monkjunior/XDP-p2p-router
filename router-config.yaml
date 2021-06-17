@@ -1,0 +1,5 @@
+#GeoLite DB path
+geolite:
+  asn: data/geolite2/GeoLite2-ASN_20210504/GeoLite2-ASN.mmdb
+  city: data/geolite2/GeoLite2-City_20210427/GeoLite2-City.mmdb
+  country: data/geolite2/GeoLite2-Country_20210427/GeoLite2-Country.mmdb
