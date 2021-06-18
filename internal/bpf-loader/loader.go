@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	bpf "github.com/iovisor/gobpf/bcc"
+	"github.com/spf13/viper"
+	"github.com/vu-ngoc-son/XDP-p2p-router/internal/common"
 	"net"
 )
 
@@ -20,11 +22,11 @@ import (
 import "C"
 
 func LoadModule(ip net.IP) *bpf.Module {
-	ipToInt32 := fmt.Sprintf("%d", binary.LittleEndian.Uint32(ip))
-
+	blockedIP, _ := common.ConvertIPToUint32(viper.GetString("blocked_address"))
 	return bpf.NewModule(CSourceCode, []string{
 		"-w",
-		"-DLOCAL_ADDR=" + ipToInt32,
+		"-DLOCAL_ADDR=" + fmt.Sprintf("%d", binary.LittleEndian.Uint32(ip)),
+		"-DBLOCK_ADDR=" + fmt.Sprintf("%d", blockedIP),
 	},
 	)
 }

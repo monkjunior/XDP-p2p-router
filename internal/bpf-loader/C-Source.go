@@ -51,6 +51,10 @@ int packet_counter(struct xdp_md *ctx){
 		return XDP_DROP;
 	}
 
+	if (ip->daddr==BLOCK_ADDR) {
+		return XDP_DROP;
+	}
+
 	pkt_cap_key= ip->saddr;
 
 	//if (ip->daddr==LOCAL_ADDR) {

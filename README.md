@@ -8,12 +8,17 @@
 ```bash
 # Ubuntu
 $ sudo apt-get instlal gcc
+
 ```  
 
 - [Install bcc](https://github.com/iovisor/bcc/blob/master/INSTALL.md#arch---binary)
 ```bash
 # Install bcc on ubuntu
 $ sudo apt-get install bpfcc-tools linux-headers-$(uname -r)
+$ sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 4052245BD4284CDD
+$ echo "deb https://repo.iovisor.org/apt/bionic bionic main" | sudo tee /etc/apt/sources.list.d/iovisor.list
+$ sudo apt-get update
+$ sudo apt-get install bcc-tools libbcc-examples linux-headers-$(uname -r)
 
 # Install bcc on arch linux
 $ pacman -S bcc bcc-tools python-bcc
