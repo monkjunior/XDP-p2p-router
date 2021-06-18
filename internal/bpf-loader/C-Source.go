@@ -54,7 +54,7 @@ int packet_counter(struct xdp_md *ctx){
 	pkt_cap_key= ip->saddr;
 
 	//if (ip->daddr==LOCAL_ADDR) {
-	//	pkt_cap_value = pkt_counter.lookup_or_try_init(&pkt_cap_key, &pkt_cap_dft_value);
+	//	pkt_cap_value = pkt_counter.lookup_or_init(&pkt_cap_key, &pkt_cap_dft_value);
 	//	if (pkt_cap_value) {
 	//		__u64 bytes = data_end - data; /* Calculate packet length */
 	//		__sync_fetch_and_add(&pkt_cap_value->rx_packets, 1);
@@ -68,7 +68,7 @@ int packet_counter(struct xdp_md *ctx){
 	//	}
 	//}
 
-	pkt_cap_value = pkt_counter.lookup_or_try_init(&pkt_cap_key, &pkt_cap_dft_value);
+	pkt_cap_value = pkt_counter.lookup_or_init(&pkt_cap_key, &pkt_cap_dft_value);
 	if (pkt_cap_value) {
 		__u64 bytes = data_end - data; /* Calculate packet length */
 		__sync_fetch_and_add(&pkt_cap_value->rx_packets, 1);
