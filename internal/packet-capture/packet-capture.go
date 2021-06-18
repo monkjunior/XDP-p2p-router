@@ -1,14 +1,15 @@
 package packet_capture
 
 import (
-	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
-	"github.com/vu-ngoc-son/XDP-p2p-router/database/geolite2"
-	"go.uber.org/zap"
 	"net"
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	bpf "github.com/iovisor/gobpf/bcc"
+	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
+	"github.com/vu-ngoc-son/XDP-p2p-router/database/geolite2"
 	bpfMaps "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-maps"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/common"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/logger"

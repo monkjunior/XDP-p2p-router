@@ -62,7 +62,7 @@ int packet_counter(struct xdp_md *ctx){
 	//	}
 	//	
 	//	ip_whitelist_key = ip->saddr;
-	//	ip_whitelist_value = ip_whitelist.lookup_or_try_init(&ip_whitelist_key, &ip_whitelist_dft_value);
+	//	ip_whitelist_value = ip_whitelist.lookup_or_init(&ip_whitelist_key, &ip_whitelist_dft_value);
 	//	if (ip_whitelist_value) {
 	//		return *ip_whitelist_value;
 	//	}
@@ -76,7 +76,7 @@ int packet_counter(struct xdp_md *ctx){
 	}
 	
 	ip_whitelist_key = ip->saddr;
-	ip_whitelist_value = ip_whitelist.lookup_or_try_init(&ip_whitelist_key, &ip_whitelist_dft_value);
+	ip_whitelist_value = ip_whitelist.lookup_or_init(&ip_whitelist_key, &ip_whitelist_dft_value);
 	if (ip_whitelist_value) {
 		return *ip_whitelist_value;
 	}

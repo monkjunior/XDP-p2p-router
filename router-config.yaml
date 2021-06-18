@@ -1,4 +1,4 @@
-# Using fake data to test terminal ui
+# Auto generate data to test terminal ui
 fake_data: false
 
 # GeoLite DB path

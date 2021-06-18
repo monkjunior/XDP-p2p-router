@@ -2,16 +2,22 @@ package widgets
 
 import (
 	"fmt"
-	bpfMaps "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-maps"
 	"strconv"
 	"sync"
 	"time"
 
 	goRand "github.com/Pallinder/go-randomdata"
 	"github.com/gizak/termui/v3/widgets"
+	"github.com/iovisor/gobpf/bcc"
 	bpf "github.com/iovisor/gobpf/bcc"
 	dbSqlite "github.com/vu-ngoc-son/XDP-p2p-router/database/db-sqlite"
+	bpfMaps "github.com/vu-ngoc-son/XDP-p2p-router/internal/bpf-maps"
 	"github.com/vu-ngoc-son/XDP-p2p-router/internal/common"
+)
+
+const (
+	XdpDrop uint32 = 1
+	XdpPass uint32 = 2
 )
 
 type IPStats struct {
@@ -132,7 +138,14 @@ func (s *IPStats) crawlIPData() {
 			fmt.Sprintf("%.2f", v),
 			fmt.Sprintf("%.2f", p.Bandwidth),
 		})
+		if v.(float64) > p.Bandwidth {
+			s.updateWhiteList(k.(uint32), XdpDrop)
+			return true
+		}
+
+		s.updateWhiteList(k.(uint32), XdpPass)
 		return true
+
 	})
 	return
 }
@@ -155,4 +168,14 @@ func (s *IPStats) randomIPData(minRows, maxRows int) {
 	}
 
 	return
+}
+
+func (s *IPStats) updateWhiteList(k uint32, v uint32) {
+	keyRaw := make([]byte, 4)
+	bcc.GetHostByteOrder().PutUint32(keyRaw, k)
+
+	vRaw := make([]byte, 4)
+	bcc.GetHostByteOrder().PutUint32(vRaw, v)
+
+	s.IPWhitelistMap.Set(keyRaw, vRaw)
 }
